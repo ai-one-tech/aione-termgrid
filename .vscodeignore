@@ -1,0 +1,17 @@
+.vscode/
+node_modules/
+out/
+dist/
+src/
+tsconfig.json
+tsconfig.extension.json
+tsconfig.webview.json
+vite.config.ts
+tsup.config.ts
+vitest.config.ts
+tailwind.config.js
+postcss.config.js
+package-lock.json
+yarn.lock
+.gitignore
+*.vsix
