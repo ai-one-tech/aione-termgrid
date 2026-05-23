@@ -40,7 +40,8 @@ const NewConfigModal: React.FC<NewConfigModalProps> = ({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <div data-testid="NewConfigModal">
+      <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{t('newConfig')}</DialogTitle>
@@ -79,7 +80,8 @@ const NewConfigModal: React.FC<NewConfigModalProps> = ({
           </Button>
         </DialogFooter>
       </DialogContent>
-    </Dialog>
+      </Dialog>
+    </div>
   );
 };
 

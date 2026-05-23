@@ -136,8 +136,9 @@ const TerminalCellComponent: React.FC<TerminalCellProps> = ({
   };
 
   return (
-    <Card className="h-full flex flex-col" style={{ borderColor: cell.borderColor }}>
-      <CardHeader className="p-3 flex flex-row items-center justify-between border-b">
+    <div data-testid="TerminalCell" className="h-full">
+      <Card className="h-full flex flex-col" style={cell.borderColor ? { borderColor: cell.borderColor } : undefined}>
+      <CardHeader className="px-3 py-1 flex flex-row items-center justify-between border-b">
         <CardTitle className="text-sm font-medium flex items-center gap-2">
           <span
             className={`w-3 h-3 rounded-full flex-shrink-0 transition-all duration-300 ${
@@ -159,7 +160,7 @@ const TerminalCellComponent: React.FC<TerminalCellProps> = ({
             onClick={onRestart}
             title={t('restart')}
           >
-            <RefreshIcon size={12} />
+            <RefreshIcon size={14} className="text-green-500" />
           </Button>
           <Button
             variant="ghost"
@@ -169,7 +170,7 @@ const TerminalCellComponent: React.FC<TerminalCellProps> = ({
             title={t('stop')}
             disabled={status === 'stopped'}
           >
-            <StopIcon size={12} />
+            <StopIcon size={14} className="text-red-500" />
           </Button>
           <Button
             variant="ghost"
@@ -178,14 +179,15 @@ const TerminalCellComponent: React.FC<TerminalCellProps> = ({
             onClick={onMaximize}
             title={t('zoom')}
           >
-            <MaximizeIcon size={12} />
+            <MaximizeIcon size={14} />
           </Button>
         </div>
       </CardHeader>
       <CardContent className="flex-1 p-0 overflow-hidden">
         <div ref={terminalRef} className="w-full h-full" />
       </CardContent>
-    </Card>
+      </Card>
+    </div>
   );
 };
 

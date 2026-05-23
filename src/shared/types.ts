@@ -141,6 +141,16 @@ export interface LayoutChangeMessage {
   payload: { layout: GridLayoutItem[] };
 }
 
+export interface WebviewReloadMessage {
+  type: 'webview:reload';
+  payload: Record<string, never>;
+}
+
+export interface WebviewReadyMessage {
+  type: 'webview:ready';
+  payload: Record<string, never>;
+}
+
 export type WebviewMessage =
   | ConfigSaveMessage
   | ConfigSaveAsMessage
@@ -151,7 +161,9 @@ export type WebviewMessage =
   | TerminalInputMessage
   | TerminalResizeMessage
   | CellUpdateMessage
-  | LayoutChangeMessage;
+  | LayoutChangeMessage
+  | WebviewReloadMessage
+  | WebviewReadyMessage;
 
 // Layout presets
 export const LAYOUT_PRESETS: LayoutPreset[] = [
@@ -175,7 +187,6 @@ export const DEFAULT_CONFIG: TermGridConfig = {
     {
       id: 'cell-1',
       title: 'Terminal 1',
-      borderColor: '#22c55e',
       cwd: '.',
       command: { default: 'bash' },
       order: 1,
@@ -184,7 +195,6 @@ export const DEFAULT_CONFIG: TermGridConfig = {
     {
       id: 'cell-2',
       title: 'Terminal 2',
-      borderColor: '#3b82f6',
       cwd: '.',
       command: { default: 'bash' },
       order: 2,
@@ -193,7 +203,6 @@ export const DEFAULT_CONFIG: TermGridConfig = {
     {
       id: 'cell-3',
       title: 'Terminal 3',
-      borderColor: '#f59e0b',
       cwd: '.',
       command: { default: 'bash' },
       order: 3,
@@ -202,7 +211,6 @@ export const DEFAULT_CONFIG: TermGridConfig = {
     {
       id: 'cell-4',
       title: 'Terminal 4',
-      borderColor: '#ef4444',
       cwd: '.',
       command: { default: 'bash' },
       order: 4,

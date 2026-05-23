@@ -8,7 +8,7 @@ const Dialog = React.forwardRef<
   if (!open) return null
   
   return (
-    <div className="fixed inset-0 z-50" ref={ref} {...props}>
+    <div data-testid="dialog" className="fixed inset-0 z-50" ref={ref} {...props}>
       <div 
         className="fixed inset-0 bg-black/50" 
         onClick={() => onOpenChange?.(false)}

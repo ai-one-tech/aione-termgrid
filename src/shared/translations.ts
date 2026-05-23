@@ -45,6 +45,13 @@ export const TRANSLATIONS = {
     cell: 'Cell',
     loading: 'Loading...',
     search: 'Search',
+    cancel: 'Cancel',
+    merge: 'Merge',
+    selectMoreCells: 'Select at least 2 cells',
+    sameRowOrColOnly: 'Only cells in the same row or column can be merged',
+    clickToConfigure: 'Click to Configure',
+    clickToConfigureDescription: 'Click any cell to open its terminal configuration.',
+    exitMergeMode: 'Exit Merge Mode',
   },
   zh: {
     appName: 'AiOne TermGrid',
@@ -91,6 +98,13 @@ export const TRANSLATIONS = {
     cell: '单元格',
     loading: '加载中...',
     search: '搜索',
+    cancel: '取消',
+    merge: '合并',
+    selectMoreCells: '请至少选择2个单元格',
+    sameRowOrColOnly: '只能选择同一行或同一列的单元格',
+    clickToConfigure: '点击配置',
+    clickToConfigureDescription: '点击任意单元格打开终端配置。',
+    exitMergeMode: '退出合并模式',
   },
 } as const;
 

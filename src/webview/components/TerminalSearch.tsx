@@ -83,7 +83,7 @@ const TerminalSearch: React.FC<TerminalSearchProps> = ({
   }, [searchAddon]);
 
   return (
-    <div className="flex items-center gap-2 p-2 border-b bg-muted/50">
+    <div data-testid="TerminalSearch" className="flex items-center gap-2 p-2 border-b bg-muted/50">
       <SearchIcon className="w-4 h-4 text-muted-foreground" />
       
       <Input

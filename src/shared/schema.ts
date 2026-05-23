@@ -12,7 +12,7 @@ export const PlatformCommandSchema = z.object({
 export const TerminalCellSchema = z.object({
   id: z.string().regex(/^[a-z0-9-]+$/),
   title: z.string().min(1).max(50),
-  borderColor: z.string().regex(/^#[0-9a-fA-F]{6}$/),
+  borderColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
   cwd: z.string(),
   command: PlatformCommandSchema,
   env: z.record(z.string()).optional(),

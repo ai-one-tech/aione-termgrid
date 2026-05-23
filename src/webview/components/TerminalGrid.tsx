@@ -35,7 +35,7 @@ const TerminalGrid: React.FC<TerminalGridProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const [gridWidth, setGridWidth] = useState(1200);
   const [containerHeight, setContainerHeight] = useState(400);
-  const [rowHeight, setRowHeight] = useState(100);
+  const [rowHeight, setRowHeight] = useState(Math.floor(400 / (layout.rows * 3)));
 
   // Resize observer to handle container size changes
   useEffect(() => {
@@ -47,11 +47,7 @@ const TerminalGrid: React.FC<TerminalGridProps> = ({
         setGridWidth(width);
         setContainerHeight(height);
         
-        // Calculate row height based on available height and number of rows
-        // Subtract padding to leave space at the bottom and prevent overflow
-        const bottomPadding = 32;
-        const availableHeight = height - bottomPadding;
-        const calculatedRowHeight = Math.max(20, Math.floor(availableHeight / (layout.rows * 3)));
+        const calculatedRowHeight = Math.max(20, Math.floor(height / (layout.rows * 3)));
         setRowHeight(calculatedRowHeight);
       }
     });
@@ -302,11 +298,11 @@ const TerminalGrid: React.FC<TerminalGridProps> = ({
         onLayoutChange={handleLayoutChange}
         isDraggable={false}
         isResizable={false}
-        margin={[0, 0]}
-        containerPadding={[0, 0]}
+        margin={[6, 6]}
+        containerPadding={[6, 6]}
       >
         {visibleCells.map((cell) => (
-          <div key={cell.id} className="grid-cell p-2">
+          <div key={cell.id} className="grid-cell">
             <TerminalCellComponent
               cell={cell}
               theme={theme}

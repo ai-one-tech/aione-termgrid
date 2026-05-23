@@ -70,9 +70,18 @@ export class TermGridEditorProvider implements vscode.CustomTextEditorProvider {
       ptyManager.dispose();
     };
 
-    const changeDocumentSubscription = vscode.workspace.onDidChangeTextDocument((e) => {
+    const changeDocumentSubscription = vscode.workspace.onDidChangeTextDocument(async (e) => {
       if (e.document.uri.toString() === document.uri.toString()) {
-        // Config file changed externally
+        // Config file changed externally, reload config
+        this.configManager.clearCache();
+        const newConfig = await this.configManager.readConfig(document.uri.fsPath);
+        if (newConfig) {
+          config = newConfig;
+          postMessage({
+            type: 'config:updated',
+            payload: { config: newConfig },
+          });
+        }
       }
     });
     panelDisposables.push(changeDocumentSubscription);
@@ -114,6 +123,17 @@ export class TermGridEditorProvider implements vscode.CustomTextEditorProvider {
             message.payload.rows
           );
           break;
+        case 'webview:reload':
+          webviewPanel.webview.html = this.getHtmlForWebview(webviewPanel.webview);
+          break;
+        case 'webview:ready':
+          if (config) {
+            postMessage({
+              type: 'config:loaded',
+              payload: { config },
+            });
+          }
+          break;
       }
     });
     panelDisposables.push(onMessageDisposable);
@@ -144,6 +164,8 @@ export class TermGridEditorProvider implements vscode.CustomTextEditorProvider {
     if (disposed || token.isCancellationRequested) {
       return;
     }
+
+    // If config loaded successfully, notify webview
     if (config) {
       postMessage({
         type: 'config:loaded',
@@ -249,20 +271,34 @@ export class TermGridEditorProvider implements vscode.CustomTextEditorProvider {
     const styleUri = webview.asWebviewUri(
       vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'assets', 'main.css')
     );
+    const isDev = this.context.extensionMode === vscode.ExtensionMode.Development;
+    const nonce = this.getNonce();
 
     return `<!DOCTYPE html>
       <html lang="en">
       <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <link rel="stylesheet" href="${styleUri}">
+        <link rel="stylesheet" href="${styleUri}?nonce=${nonce}">
         <title>AiOne TermGrid</title>
+        <script nonce="${nonce}">
+          window.__VSCODE_IS_DEV__ = ${isDev};
+        </script>
       </head>
       <body>
         <div id="root"></div>
-        <script src="${scriptUri}"></script>
+        <script src="${scriptUri}?nonce=${nonce}" nonce="${nonce}"></script>
       </body>
       </html>`;
+  }
+
+  private getNonce(): string {
+    let text = '';
+    const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    for (let i = 0; i < 32; i++) {
+      text += possible.charAt(Math.floor(Math.random() * possible.length));
+    }
+    return text;
   }
 
   private async handleSaveConfig(

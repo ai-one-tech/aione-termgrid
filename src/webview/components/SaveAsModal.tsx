@@ -34,7 +34,8 @@ const SaveAsModal: React.FC<SaveAsModalProps> = ({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <div data-testid="SaveAsModal">
+      <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{t('saveAsTitle')}</DialogTitle>
@@ -59,7 +60,8 @@ const SaveAsModal: React.FC<SaveAsModalProps> = ({
           </Button>
         </DialogFooter>
       </DialogContent>
-    </Dialog>
+      </Dialog>
+    </div>
   );
 };
 

@@ -69,7 +69,11 @@ export class ConfigManager {
       return validated;
     } catch (error) {
       console.error(`Failed to read config: ${filePath}`, error);
-      vscode.window.showErrorMessage(`Failed to read config: ${path.basename(filePath)}`);
+      if (error instanceof Error) {
+        vscode.window.showErrorMessage(`Config validation error in ${path.basename(filePath)}: ${error.message}`);
+      } else {
+        vscode.window.showErrorMessage(`Failed to read config: ${path.basename(filePath)}`);
+      }
       return undefined;
     }
   }

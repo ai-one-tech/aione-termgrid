@@ -1,48 +1,48 @@
 /* Base styles */
 :root {
-  /* Shadcn UI CSS Variables */
-  --background: var(--vscode-editor-background, 222.2 84% 4.9%);
-  --foreground: var(--vscode-editor-foreground, 210 40% 98%);
+  /* Shadcn UI CSS Variables - 使用 VSCode 主题变量 */
+  --background: var(--vscode-editor-background, #1e1e1e);
+  --foreground: var(--vscode-editor-foreground, #cccccc);
 
-  --card: var(--vscode-sideBar-background, var(--vscode-editorWidget-background, 222.2 84% 4.9%));
-  --card-foreground: var(--vscode-editor-foreground, 210 40% 98%);
+  --card: var(--vscode-sideBar-background, var(--vscode-editorWidget-background, #252526));
+  --card-foreground: var(--vscode-editor-foreground, #cccccc);
 
-  --popover: var(--vscode-editorWidget-background, 222.2 84% 4.9%);
-  --popover-foreground: var(--vscode-editor-foreground, 210 40% 98%);
+  --popover: var(--vscode-editorWidget-background, #252526);
+  --popover-foreground: var(--vscode-editor-foreground, #cccccc);
 
-  --primary: var(--vscode-button-background, 217.2 91.2% 59.8%);
-  --primary-foreground: var(--vscode-button-foreground, 222.2 47.4% 11.2%);
+  --primary: var(--vscode-button-background, #0e639c);
+  --primary-foreground: var(--vscode-button-foreground, #ffffff);
 
-  --secondary: var(--vscode-list-hoverBackground, 217.2 32.6% 17.5%);
-  --secondary-foreground: var(--vscode-editor-foreground, 210 40% 98%);
+  --secondary: var(--vscode-list-hoverBackground, #2a2d2e);
+  --secondary-foreground: var(--vscode-editor-foreground, #cccccc);
 
-  --muted: var(--vscode-list-hoverBackground, 217.2 32.6% 17.5%);
-  --muted-foreground: var(--vscode-descriptionForeground, 215 20.2% 65.1%);
+  --muted: var(--vscode-list-hoverBackground, #2a2d2e);
+  --muted-foreground: var(--vscode-descriptionForeground, #858585);
 
-  --accent: var(--vscode-list-hoverBackground, 217.2 32.6% 17.5%);
-  --accent-foreground: var(--vscode-editor-foreground, 210 40% 98%);
+  --accent: var(--vscode-list-hoverBackground, #2a2d2e);
+  --accent-foreground: var(--vscode-editor-foreground, #cccccc);
 
-  --destructive: var(--vscode-errorForeground, 0 62.8% 30.6%);
-  --destructive-foreground: var(--vscode-editor-foreground, 210 40% 98%);
+  --destructive: var(--vscode-errorForeground, #f48771);
+  --destructive-foreground: var(--vscode-editor-foreground, #cccccc);
 
-  --border: var(--vscode-panel-border, var(--vscode-editorGroup-border, 217.2 32.6% 17.5%));
-  --input: var(--vscode-input-border, 217.2 32.6% 17.5%);
-  --ring: var(--vscode-focusBorder, 224.3 76.3% 48%);
+  --border: var(--vscode-panel-border, var(--vscode-editorGroup-border, #3c3c3c));
+  --input: var(--vscode-input-border, #3c3c3c);
+  --ring: var(--vscode-focusBorder, #007fd4);
 
   --radius: 0.5rem;
 
   /* TermGrid CSS Variables */
   --tg-bg: var(--vscode-editor-background, #1e1e1e);
   --tg-fg: var(--vscode-editor-foreground, #cccccc);
-  --tg-surface: var(--vscode-sideBar-background, var(--vscode-editorWidget-background, var(--tg-bg)));
-  --tg-surface-elevated: var(--vscode-editorWidget-background, var(--vscode-sideBar-background, var(--tg-bg)));
-  --tg-border: var(--vscode-panel-border, var(--vscode-editorGroup-border, rgba(128, 128, 128, 0.35)));
-  --tg-border-strong: var(--vscode-input-border, var(--tg-border));
+  --tg-surface: var(--vscode-sideBar-background, var(--vscode-editorWidget-background, #252526));
+  --tg-surface-elevated: var(--vscode-editorWidget-background, var(--vscode-sideBar-background, #252526));
+  --tg-border: var(--vscode-panel-border, var(--vscode-editorGroup-border, #3c3c3c));
+  --tg-border-strong: var(--vscode-input-border, #3c3c3c);
   --tg-hover: var(--vscode-toolbar-hoverBackground, var(--vscode-list-hoverBackground, rgba(127, 127, 127, 0.12)));
   --tg-active: var(--vscode-button-background, #0e639c);
-  --tg-active-hover: var(--vscode-button-hoverBackground, var(--tg-active));
-  --tg-focus: var(--vscode-focusBorder, var(--tg-active));
-  --tg-error: var(--vscode-errorForeground, #ef4444);
+  --tg-active-hover: var(--vscode-button-hoverBackground, #1177bb);
+  --tg-focus: var(--vscode-focusBorder, #007fd4);
+  --tg-error: var(--vscode-errorForeground, #f48771);
 }
 
 @tailwind base;

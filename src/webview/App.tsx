@@ -93,13 +93,26 @@ const App: React.FC<AppProps> = ({ vscode }) => {
     vscode.postMessage(message);
   }, [vscode]);
 
+  // Notify extension host that webview is ready
+  useEffect(() => {
+    sendMessage({
+      type: 'webview:ready',
+      payload: {},
+    });
+  }, [sendMessage]);
+
   // Save configuration
-  const handleSave = useCallback(() => {
-    if (config) {
+  const handleSave = useCallback((configToSave?: TermGridConfig) => {
+    const targetConfig = configToSave || config;
+    if (targetConfig) {
       sendMessage({
         type: 'config:save',
-        payload: { config },
+        payload: { config: targetConfig },
       });
+      // Update the displayed config if saving from settings panel
+      if (configToSave && configToSave !== config) {
+        setConfig(configToSave);
+      }
       setIsDirty(false);
     }
   }, [config, sendMessage]);
@@ -117,8 +130,13 @@ const App: React.FC<AppProps> = ({ vscode }) => {
 
   // Update configuration
   const handleConfigUpdate = useCallback((newConfig: TermGridConfig) => {
-    setConfig(newConfig);
-    setIsDirty(true);
+    setConfig((prevConfig) => {
+      // Only mark as dirty if the config has actually changed
+      if (prevConfig && JSON.stringify(prevConfig) !== JSON.stringify(newConfig)) {
+        setIsDirty(true);
+      }
+      return newConfig;
+    });
   }, []);
 
   // Stop all terminals
@@ -137,6 +155,14 @@ const App: React.FC<AppProps> = ({ vscode }) => {
   const handleRestartAll = useCallback(() => {
     sendMessage({
       type: 'terminal:restartAll',
+      payload: {},
+    });
+  }, [sendMessage]);
+
+  // Reload webview
+  const handleReloadWebview = useCallback(() => {
+    sendMessage({
+      type: 'webview:reload',
       payload: {},
     });
   }, [sendMessage]);
@@ -199,6 +225,7 @@ const App: React.FC<AppProps> = ({ vscode }) => {
         onStopAll={handleStopAll}
         onRestartAll={handleRestartAll}
         onOpenSettings={() => setShowSettings(true)}
+        onReloadWebview={handleReloadWebview}
         t={t}
       />
 
@@ -217,12 +244,12 @@ const App: React.FC<AppProps> = ({ vscode }) => {
       </div>
 
       <SettingsPanel
+        key={config.name}
         config={config}
         language={language}
         open={showSettings}
         onOpenChange={setShowSettings}
         onSave={handleSave}
-        onConfigUpdate={handleConfigUpdate}
         onChangeLanguage={changeLanguage}
         t={t}
       />

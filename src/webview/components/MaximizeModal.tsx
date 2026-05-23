@@ -143,7 +143,8 @@ const MaximizeModal: React.FC<MaximizeModalProps> = ({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <div data-testid="MaximizeModal">
+      <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-screen-2xl w-[90vw] h-[90vh] p-0 overflow-hidden flex flex-col">
         <DialogHeader className="p-4 border-b flex flex-row items-center justify-between">
           <DialogTitle className="flex items-center gap-2">
@@ -181,7 +182,8 @@ const MaximizeModal: React.FC<MaximizeModalProps> = ({
         
         <div ref={terminalRef} className="flex-1 w-full h-full" />
       </DialogContent>
-    </Dialog>
+      </Dialog>
+    </div>
   );
 };
 
