@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { ConfigManager } from '../config/configManager';
-import { ConfigFile, TerminalStatus } from '../../shared/types';
+import { TerminalStatus } from '../../shared/types';
 
 export class TermGridTreeProvider implements vscode.TreeDataProvider<ConfigTreeItem> {
   private _onDidChangeTreeData = new vscode.EventEmitter<ConfigTreeItem | undefined | null | void>();

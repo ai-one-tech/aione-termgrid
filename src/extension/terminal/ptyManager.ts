@@ -1,8 +1,6 @@
-import * as vscode from 'vscode';
 import * as pty from 'node-pty';
-import * as path from 'path';
 import { TerminalCell } from '../../shared/schema';
-import { TerminalStatus, ExtensionMessage } from '../../shared/types';
+import { TerminalStatus } from '../../shared/types';
 import { resolveShellCommand, resolveCwd } from './shellResolver';
 import { ExecutionQueue } from './executionQueue';
 

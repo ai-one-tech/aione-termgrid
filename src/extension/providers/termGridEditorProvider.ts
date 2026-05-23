@@ -1,13 +1,11 @@
 import * as vscode from 'vscode';
-import * as path from 'path';
 import { ConfigManager } from '../config/configManager';
-import { TermGridConfig, TerminalCell } from '../../shared/schema';
+import { TermGridConfig } from '../../shared/schema';
 import { TerminalStatus } from '../../shared/types';
 import { PtyManager } from '../terminal/ptyManager';
 
 export class TermGridEditorProvider implements vscode.CustomTextEditorProvider {
   private static readonly viewType = 'aioneTermGrid.editor';
-  private ptyManager: PtyManager | null = null;
 
   constructor(
     private readonly context: vscode.ExtensionContext,
@@ -17,32 +15,117 @@ export class TermGridEditorProvider implements vscode.CustomTextEditorProvider {
   async resolveCustomTextEditor(
     document: vscode.TextDocument,
     webviewPanel: vscode.WebviewPanel,
-    _token: vscode.CancellationToken
+    token: vscode.CancellationToken
   ): Promise<void> {
     const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    let disposed = false;
+    let config: TermGridConfig | undefined = undefined;
+    const panelDisposables: vscode.Disposable[] = [];
+
+    const postMessage = (message: unknown) => {
+      if (disposed) {
+        return;
+      }
+      webviewPanel.webview.postMessage(message).then(
+        () => {},
+        () => {}
+      );
+    };
 
     // Initialize PTY manager for this editor instance
-    this.ptyManager = new PtyManager({
+    const ptyManager = new PtyManager({
       workspaceRoot,
       onData: (cellId: string, data: string) => {
-        webviewPanel.webview.postMessage({
+        postMessage({
           type: 'terminal:data',
           payload: { cellId, data },
         });
       },
       onStatusChange: (cellId: string, status: TerminalStatus) => {
-        webviewPanel.webview.postMessage({
+        postMessage({
           type: 'terminal:status',
           payload: { cellId, status },
         });
       },
       onExit: (cellId: string, code: number) => {
-        webviewPanel.webview.postMessage({
+        postMessage({
           type: 'terminal:exited',
           payload: { cellId, code },
         });
       },
     });
+
+    const disposePanelResources = () => {
+      if (disposed) {
+        return;
+      }
+      disposed = true;
+      for (const d of panelDisposables.splice(0)) {
+        try {
+          d.dispose();
+        } catch (error) {
+          void error;
+        }
+      }
+      ptyManager.dispose();
+    };
+
+    const changeDocumentSubscription = vscode.workspace.onDidChangeTextDocument((e) => {
+      if (e.document.uri.toString() === document.uri.toString()) {
+        // Config file changed externally
+      }
+    });
+    panelDisposables.push(changeDocumentSubscription);
+
+    const onMessageDisposable = webviewPanel.webview.onDidReceiveMessage(async (message) => {
+      switch (message.type) {
+        case 'config:save':
+          await this.handleSaveConfig(document, message.payload.config);
+          break;
+        case 'config:saveAs':
+          await this.handleSaveAsConfig(webviewPanel, message.payload.name, message.payload.config);
+          break;
+        case 'terminal:start':
+          if (config) {
+            await this.handleTerminalStart(ptyManager, message.payload.cellId, config);
+          }
+          break;
+        case 'terminal:stop':
+          await this.handleTerminalStop(ptyManager, message.payload.cellId);
+          break;
+        case 'terminal:restart':
+          if (config) {
+            await this.handleTerminalRestart(ptyManager, message.payload.cellId, config);
+          }
+          break;
+        case 'terminal:restartAll':
+          if (config) {
+            await this.handleTerminalRestartAll(ptyManager, config);
+          }
+          break;
+        case 'terminal:input':
+          await this.handleTerminalInput(ptyManager, message.payload.cellId, message.payload.data);
+          break;
+        case 'terminal:resize':
+          await this.handleTerminalResize(
+            ptyManager,
+            message.payload.cellId,
+            message.payload.cols,
+            message.payload.rows
+          );
+          break;
+      }
+    });
+    panelDisposables.push(onMessageDisposable);
+
+    webviewPanel.onDidDispose(() => {
+      disposePanelResources();
+    });
+
+    if (token.isCancellationRequested) {
+      disposePanelResources();
+      return;
+    }
 
     // Set up webview
     webviewPanel.webview.options = {
@@ -57,62 +140,24 @@ export class TermGridEditorProvider implements vscode.CustomTextEditorProvider {
     webviewPanel.webview.html = this.getHtmlForWebview(webviewPanel.webview);
 
     // Load config
-    const config = await this.configManager.readConfig(document.uri.fsPath);
+    config = await this.configManager.readConfig(document.uri.fsPath);
+    if (disposed || token.isCancellationRequested) {
+      return;
+    }
     if (config) {
-      webviewPanel.webview.postMessage({
+      postMessage({
         type: 'config:loaded',
         payload: { config },
       });
     }
-
-    // Handle messages from webview
-    webviewPanel.webview.onDidReceiveMessage(async (message) => {
-      switch (message.type) {
-        case 'config:save':
-          await this.handleSaveConfig(document, message.payload.config);
-          break;
-        case 'terminal:start':
-          if (config) {
-            await this.handleTerminalStart(message.payload.cellId, config);
-          }
-          break;
-        case 'terminal:stop':
-          await this.handleTerminalStop(message.payload.cellId);
-          break;
-        case 'terminal:restart':
-          if (config) {
-            await this.handleTerminalRestart(message.payload.cellId, config);
-          }
-          break;
-        case 'terminal:input':
-          await this.handleTerminalInput(message.payload.cellId, message.payload.data);
-          break;
-        case 'terminal:resize':
-          await this.handleTerminalResize(
-            message.payload.cellId,
-            message.payload.cols,
-            message.payload.rows
-          );
-          break;
-      }
-    });
-
-    // Watch for document changes
-    const changeDocumentSubscription = vscode.workspace.onDidChangeTextDocument((e) => {
-      if (e.document.uri.toString() === document.uri.toString()) {
-        // Config file changed externally
-      }
-    });
-
-    webviewPanel.onDidDispose(() => {
-      changeDocumentSubscription.dispose();
-      this.ptyManager?.dispose();
-      this.ptyManager = null;
-    });
   }
 
-  private async handleTerminalStart(cellId: string, config: TermGridConfig | null): Promise<void> {
-    if (!config || !this.ptyManager) {
+  private async handleTerminalStart(
+    ptyManager: PtyManager,
+    cellId: string,
+    config: TermGridConfig | undefined
+  ): Promise<void> {
+    if (!config) {
       return;
     }
 
@@ -122,26 +167,26 @@ export class TermGridEditorProvider implements vscode.CustomTextEditorProvider {
     }
 
     try {
-      await this.ptyManager.startCell(cell);
+      await ptyManager.startCell(cell);
     } catch (error) {
       console.error(`Failed to start terminal ${cellId}:`, error);
     }
   }
 
-  private async handleTerminalStop(cellId: string): Promise<void> {
-    if (!this.ptyManager) {
-      return;
-    }
-
+  private async handleTerminalStop(ptyManager: PtyManager, cellId: string): Promise<void> {
     try {
-      await this.ptyManager.stopCell(cellId);
+      await ptyManager.stopCell(cellId);
     } catch (error) {
       console.error(`Failed to stop terminal ${cellId}:`, error);
     }
   }
 
-  private async handleTerminalRestart(cellId: string, config: TermGridConfig | null): Promise<void> {
-    if (!config || !this.ptyManager) {
+  private async handleTerminalRestart(
+    ptyManager: PtyManager,
+    cellId: string,
+    config: TermGridConfig | undefined
+  ): Promise<void> {
+    if (!config) {
       return;
     }
 
@@ -151,31 +196,47 @@ export class TermGridEditorProvider implements vscode.CustomTextEditorProvider {
     }
 
     try {
-      await this.ptyManager.restartCell(cell);
+      await ptyManager.restartCell(cell);
     } catch (error) {
       console.error(`Failed to restart terminal ${cellId}:`, error);
     }
   }
 
-  private async handleTerminalInput(cellId: string, data: string): Promise<void> {
-    if (!this.ptyManager) {
+  private async handleTerminalRestartAll(
+    ptyManager: PtyManager,
+    config: TermGridConfig | undefined
+  ): Promise<void> {
+    if (!config) {
       return;
     }
 
     try {
-      await this.ptyManager.sendInput(cellId, data);
+      await ptyManager.restartAll(config.cells);
+    } catch (error) {
+      console.error('Failed to restart all terminals:', error);
+    }
+  }
+
+  private async handleTerminalInput(
+    ptyManager: PtyManager,
+    cellId: string,
+    data: string
+  ): Promise<void> {
+    try {
+      await ptyManager.sendInput(cellId, data);
     } catch (error) {
       console.error(`Failed to send input to terminal ${cellId}:`, error);
     }
   }
 
-  private async handleTerminalResize(cellId: string, cols: number, rows: number): Promise<void> {
-    if (!this.ptyManager) {
-      return;
-    }
-
+  private async handleTerminalResize(
+    ptyManager: PtyManager,
+    cellId: string,
+    cols: number,
+    rows: number
+  ): Promise<void> {
     try {
-      await this.ptyManager.resize(cellId, cols, rows);
+      await ptyManager.resize(cellId, cols, rows);
     } catch (error) {
       console.error(`Failed to resize terminal ${cellId}:`, error);
     }
@@ -212,6 +273,25 @@ export class TermGridEditorProvider implements vscode.CustomTextEditorProvider {
     if (success) {
       // Notify webview
       // webviewPanel.webview.postMessage({ type: 'config:saved' });
+    }
+  }
+
+  private async handleSaveAsConfig(
+    webviewPanel: vscode.WebviewPanel,
+    name: string,
+    config: TermGridConfig
+  ): Promise<void> {
+    const filePath = await this.configManager.createConfig(name, config);
+    if (filePath) {
+      // Notify webview
+      webviewPanel.webview.postMessage({
+        type: 'config:savedAs',
+        payload: { filePath },
+      });
+      
+      // Open the new file
+      const newUri = vscode.Uri.file(filePath);
+      await vscode.commands.executeCommand('vscode.open', newUri);
     }
   }
 }

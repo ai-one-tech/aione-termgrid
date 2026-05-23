@@ -1,45 +1,44 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Terminal } from '@xterm/xterm';
-import { FitAddon } from '@xterm/addon-fit';
 import { TerminalCell as TerminalCellType } from '../../shared/schema';
 import { Theme, TerminalStatus } from '../../shared/types';
-import { TranslationKey } from '../../shared/constants';
+import { TranslationKey } from '../../shared/translations';
+import { getXtermTheme } from '../theme';
+import { loadXtermAddons } from '../lib/xtermAddons';
+import { MaximizeIcon, RefreshIcon, StopIcon } from './Icons';
+import { Card, CardHeader, CardTitle, CardContent } from './ui/card';
+import { Button } from './ui/button';
 import '@xterm/xterm/css/xterm.css';
 
 interface TerminalCellProps {
   cell: TerminalCellType;
   theme: Theme;
   status: TerminalStatus;
-  onStart: () => void;
   onStop: () => void;
   onRestart: () => void;
   onMaximize: () => void;
   onInput: (data: string) => void;
   onResize: (cols: number, rows: number) => void;
+  registerTerminalRef: (cellId: string, ref: { write: (data: string) => void; clear: () => void } | null) => void;
   t: (key: TranslationKey) => string;
 }
 
 const TerminalCellComponent: React.FC<TerminalCellProps> = ({
   cell,
   theme,
-  status: externalStatus,
-  onStart,
+  status,
   onStop,
   onRestart,
   onMaximize,
   onInput,
   onResize,
+  registerTerminalRef,
   t,
 }) => {
   const terminalRef = useRef<HTMLDivElement>(null);
   const terminalInstance = useRef<Terminal | null>(null);
-  const fitAddon = useRef<FitAddon | null>(null);
-  const [status, setStatus] = useState<TerminalStatus>(externalStatus);
-
-  // Sync external status
-  useEffect(() => {
-    setStatus(externalStatus);
-  }, [externalStatus]);
+  const fitAddon = useRef<ReturnType<typeof loadXtermAddons>['fit'] | null>(null);
+  // Use external status directly to avoid setState in effect
 
   // Initialize terminal
   useEffect(() => {
@@ -48,36 +47,14 @@ const TerminalCellComponent: React.FC<TerminalCellProps> = ({
     const terminal = new Terminal({
       fontSize: 14,
       fontFamily: 'Consolas, "Courier New", monospace',
-      theme: {
-        background: theme === 'dark' ? '#0f172a' : '#ffffff',
-        foreground: theme === 'dark' ? '#f8fafc' : '#0f172a',
-        cursor: theme === 'dark' ? '#22c55e' : '#0f172a',
-        selectionBackground: theme === 'dark' ? '#334155' : '#e2e8f0',
-        black: '#0f172a',
-        red: '#ef4444',
-        green: '#22c55e',
-        yellow: '#f59e0b',
-        blue: '#3b82f6',
-        magenta: '#8b5cf6',
-        cyan: '#06b6d4',
-        white: '#f8fafc',
-        brightBlack: '#475569',
-        brightRed: '#f87171',
-        brightGreen: '#4ade80',
-        brightYellow: '#fbbf24',
-        brightBlue: '#60a5fa',
-        brightMagenta: '#a78bfa',
-        brightCyan: '#67e8f9',
-        brightWhite: '#ffffff',
-      },
+      theme: getXtermTheme(),
       cursorBlink: true,
       scrollback: 5000,
       allowTransparency: true,
       cursorStyle: 'block',
     });
 
-    const fit = new FitAddon();
-    terminal.loadAddon(fit);
+    const { fit } = loadXtermAddons(terminal);
     terminal.open(terminalRef.current);
 
     // Delay fit to ensure container has dimensions
@@ -95,10 +72,17 @@ const TerminalCellComponent: React.FC<TerminalCellProps> = ({
     terminalInstance.current = terminal;
     fitAddon.current = fit;
 
+    // Register terminal ref
+    registerTerminalRef(cell.id, {
+      write: (data: string) => terminal.write(data),
+      clear: () => terminal.clear(),
+    });
+
     return () => {
+      registerTerminalRef(cell.id, null);
       terminal.dispose();
     };
-  }, [theme, onInput, onResize]);
+  }, [theme, onInput, onResize, cell.id, registerTerminalRef]);
 
   // Handle resize
   useEffect(() => {
@@ -114,16 +98,10 @@ const TerminalCellComponent: React.FC<TerminalCellProps> = ({
     return () => window.removeEventListener('resize', handleResize);
   }, [onResize]);
 
-  // Expose write method for parent
-  useEffect(() => {
-    (terminalRef.current as any)?.__terminal?.dispose();
-    if (terminalRef.current) {
-      (terminalRef.current as any).__terminal = {
-        write: (data: string) => terminalInstance.current?.write(data),
-        clear: () => terminalInstance.current?.clear(),
-      };
-    }
-  }, []);
+  // Don't render if cell is hidden (part of a merged area)
+  if ((cell as TerminalCellType & { hidden?: boolean }).hidden) {
+    return null;
+  }
 
   // Status indicator color
   const getStatusColor = () => {
@@ -141,84 +119,73 @@ const TerminalCellComponent: React.FC<TerminalCellProps> = ({
     }
   };
 
+  // Get status text
+  const getStatusText = () => {
+    switch (status) {
+      case 'running':
+        return t('running');
+      case 'stopped':
+        return t('stopped');
+      case 'pending':
+        return t('pending');
+      case 'error':
+        return t('error');
+      default:
+        return '';
+    }
+  };
+
   return (
-    <div
-      className={`terminal-cell ${theme}`}
-      style={{ borderColor: cell.borderColor }}
-    >
-      {/* Cell Header */}
-      <div className="cell-header">
-        <div className="cell-title">
+    <Card className="h-full flex flex-col" style={{ borderColor: cell.borderColor }}>
+      <CardHeader className="p-3 flex flex-row items-center justify-between border-b">
+        <CardTitle className="text-sm font-medium flex items-center gap-2">
           <span
-            className="status-dot"
+            className={`w-3 h-3 rounded-full flex-shrink-0 transition-all duration-300 ${
+              status === 'running' ? 'animate-pulse' : ''
+            }`}
             style={{ backgroundColor: getStatusColor() }}
+            title={getStatusText()}
           />
-          <span className="title-text">{cell.title}</span>
-        </div>
-
-        <div className="cell-actions">
-          <button
-            className="cell-btn"
-            onClick={onStart}
-            title={t('start')}
-            disabled={status === 'running'}
+          <span className="truncate">{cell.title}</span>
+          <span className="text-xs text-muted-foreground ml-1">
+            {getStatusText()}
+          </span>
+        </CardTitle>
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            onClick={onRestart}
+            title={t('restart')}
           >
-            <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
-              <path d="M3 2L13 8L3 14V2Z" fill="currentColor" />
-            </svg>
-          </button>
-
-          <button
-            className="cell-btn"
+            <RefreshIcon size={12} />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
             onClick={onStop}
             title={t('stop')}
             disabled={status === 'stopped'}
           >
-            <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
-              <rect x="3" y="3" width="10" height="10" fill="currentColor" />
-            </svg>
-          </button>
-
-          <button
-            className="cell-btn"
-            onClick={onRestart}
-            title={t('restart')}
-          >
-            <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
-              <path
-                d="M8 2.5A5.5 5.5 0 0 0 2.5 8A5.5 5.5 0 0 0 8 13.5A5.5 5.5 0 0 0 13.5 8"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                fill="none"
-              />
-            </svg>
-          </button>
-
-          <button
-            className="cell-btn"
+            <StopIcon size={12} />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
             onClick={onMaximize}
             title={t('zoom')}
           >
-            <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
-              <path
-                d="M3 9V13H7M9 3H13V7M13 3L9 7M7 13L3 9"
-                stroke="currentColor"
-                strokeWidth="1.5"
-              />
-            </svg>
-          </button>
+            <MaximizeIcon size={12} />
+          </Button>
         </div>
-      </div>
-
-      {/* Terminal Container */}
-      <div
-        ref={terminalRef}
-        className="terminal-container"
-        style={{
-          backgroundColor: theme === 'dark' ? '#0f172a' : '#ffffff',
-        }}
-      />
-    </div>
+      </CardHeader>
+      <CardContent className="flex-1 p-0 overflow-hidden">
+        <div ref={terminalRef} className="w-full h-full" />
+      </CardContent>
+    </Card>
   );
 };
 

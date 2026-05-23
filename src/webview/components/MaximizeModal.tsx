@@ -1,16 +1,28 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Terminal } from '@xterm/xterm';
-import { FitAddon } from '@xterm/addon-fit';
+import { SearchAddon } from '@xterm/addon-search';
 import { TerminalCell } from '../../shared/schema';
 import { Theme, TerminalStatus } from '../../shared/types';
-import { TranslationKey } from '../../shared/constants';
+import { TranslationKey } from '../../shared/translations';
+import { getXtermTheme } from '../theme';
+import { loadXtermAddons } from '../lib/xtermAddons';
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle 
+} from './ui/dialog';
+import TerminalSearch from './TerminalSearch';
+import { Search } from 'lucide-react';
+import { Button } from './ui/button';
 import '@xterm/xterm/css/xterm.css';
 
 interface MaximizeModalProps {
-  cell: TerminalCell;
+  cell: TerminalCell | null;
   theme: Theme;
   status: TerminalStatus;
-  onClose: () => void;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
   onInput: (data: string) => void;
   t: (key: TranslationKey) => string;
 }
@@ -19,51 +31,32 @@ const MaximizeModal: React.FC<MaximizeModalProps> = ({
   cell,
   theme,
   status,
-  onClose,
+  open,
+  onOpenChange,
   onInput,
   t,
 }) => {
   const terminalRef = useRef<HTMLDivElement>(null);
   const terminalInstance = useRef<Terminal | null>(null);
-  const fitAddon = useRef<FitAddon | null>(null);
+  const fitAddon = useRef<ReturnType<typeof loadXtermAddons>['fit'] | null>(null);
+  const [searchAddon, setSearchAddon] = useState<SearchAddon | null>(null);
+  const [showSearch, setShowSearch] = useState(false);
 
   // Initialize terminal
   useEffect(() => {
-    if (!terminalRef.current) return;
+    if (!open || !cell || !terminalRef.current) return;
 
     const terminal = new Terminal({
       fontSize: 16,
       fontFamily: 'Consolas, "Courier New", monospace',
-      theme: {
-        background: theme === 'dark' ? '#0f172a' : '#ffffff',
-        foreground: theme === 'dark' ? '#f8fafc' : '#0f172a',
-        cursor: theme === 'dark' ? '#22c55e' : '#0f172a',
-        selectionBackground: theme === 'dark' ? '#334155' : '#e2e8f0',
-        black: '#0f172a',
-        red: '#ef4444',
-        green: '#22c55e',
-        yellow: '#f59e0b',
-        blue: '#3b82f6',
-        magenta: '#8b5cf6',
-        cyan: '#06b6d4',
-        white: '#f8fafc',
-        brightBlack: '#475569',
-        brightRed: '#f87171',
-        brightGreen: '#4ade80',
-        brightYellow: '#fbbf24',
-        brightBlue: '#60a5fa',
-        brightMagenta: '#a78bfa',
-        brightCyan: '#67e8f9',
-        brightWhite: '#ffffff',
-      },
+      theme: getXtermTheme(),
       cursorBlink: true,
       scrollback: 10000,
       allowTransparency: true,
       cursorStyle: 'block',
     });
 
-    const fit = new FitAddon();
-    terminal.loadAddon(fit);
+    const { fit, search } = loadXtermAddons(terminal, { enableSearch: true });
     terminal.open(terminalRef.current);
 
     // Delay fit to ensure container has dimensions
@@ -78,21 +71,40 @@ const MaximizeModal: React.FC<MaximizeModalProps> = ({
 
     terminalInstance.current = terminal;
     fitAddon.current = fit;
+    setSearchAddon(search ?? null);
 
     return () => {
+      setSearchAddon(null);
       terminal.dispose();
     };
-  }, [theme, cell.id, onInput]);
+  }, [cell, open, theme, onInput]);
 
   // Handle resize
   useEffect(() => {
+    if (!open) return;
+
     const handleResize = () => {
       fitAddon.current?.fit();
     };
 
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, []);
+  }, [open]);
+
+  // Handle search keyboard shortcut
+  useEffect(() => {
+    if (!open) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+        e.preventDefault();
+        setShowSearch(true);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [open]);
 
   // Status indicator color
   const getStatusColor = () => {
@@ -110,36 +122,66 @@ const MaximizeModal: React.FC<MaximizeModalProps> = ({
     }
   };
 
+  // Get status text
+  const getStatusText = () => {
+    switch (status) {
+      case 'running':
+        return t('running');
+      case 'stopped':
+        return t('stopped');
+      case 'pending':
+        return t('pending');
+      case 'error':
+        return t('error');
+      default:
+        return '';
+    }
+  };
+
+  if (!cell) {
+    return null;
+  }
+
   return (
-    <div className={`maximize-modal-overlay ${theme}`} onClick={onClose}>
-      <div className="maximize-modal" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <div className="modal-title">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-screen-2xl w-[90vw] h-[90vh] p-0 overflow-hidden flex flex-col">
+        <DialogHeader className="p-4 border-b flex flex-row items-center justify-between">
+          <DialogTitle className="flex items-center gap-2">
             <span
-              className="status-dot"
+              className={`w-3 h-3 rounded-full flex-shrink-0 transition-all duration-300 ${
+                status === 'running' ? 'animate-pulse' : ''
+              }`}
               style={{ backgroundColor: getStatusColor() }}
+              title={getStatusText()}
             />
-            <span>{cell.title}</span>
-          </div>
-          <button className="close-btn" onClick={onClose}>
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <path
-                d="M3 3L13 13M13 3L3 13"
-                stroke="currentColor"
-                strokeWidth="1.5"
-              />
-            </svg>
-          </button>
-        </div>
-        <div
-          ref={terminalRef}
-          className="maximized-terminal"
-          style={{
-            backgroundColor: theme === 'dark' ? '#0f172a' : '#ffffff',
-          }}
-        />
-      </div>
-    </div>
+            {cell.title}
+            <span className="text-xs text-muted-foreground ml-1">
+              {getStatusText()}
+            </span>
+          </DialogTitle>
+          
+          <Button
+            variant={showSearch ? 'secondary' : 'ghost'}
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => setShowSearch(!showSearch)}
+            title="Search (Ctrl+F)"
+          >
+            <Search className="w-4 h-4" />
+          </Button>
+        </DialogHeader>
+        
+        {showSearch && searchAddon && (
+          <TerminalSearch
+            searchAddon={searchAddon}
+            t={t}
+            onClose={() => setShowSearch(false)}
+          />
+        )}
+        
+        <div ref={terminalRef} className="flex-1 w-full h-full" />
+      </DialogContent>
+    </Dialog>
   );
 };
 

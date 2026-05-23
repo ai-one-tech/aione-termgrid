@@ -30,7 +30,7 @@ export interface GridLayoutItem {
 export type Theme = 'dark' | 'light';
 
 // Language type
-export type Language = 'en' | 'zh' | 'ja';
+export type Language = 'en' | 'zh';
 
 // Terminal instance state
 export interface TerminalInstance {
@@ -76,13 +76,19 @@ export interface TreeRefreshMessage {
   payload: { files: ConfigFile[] };
 }
 
+export interface ConfigSavedAsMessage {
+  type: 'config:savedAs';
+  payload: { filePath: string };
+}
+
 export type ExtensionMessage =
   | ConfigLoadedMessage
   | ConfigUpdatedMessage
   | TerminalDataMessage
   | TerminalStatusMessage
   | TerminalExitedMessage
-  | TreeRefreshMessage;
+  | TreeRefreshMessage
+  | ConfigSavedAsMessage;
 
 // WebView -> Host
 export interface ConfigSaveMessage {
@@ -103,6 +109,16 @@ export interface TerminalStopMessage {
 export interface TerminalRestartMessage {
   type: 'terminal:restart';
   payload: { cellId: string };
+}
+
+export interface TerminalRestartAllMessage {
+  type: 'terminal:restartAll';
+  payload: Record<string, never>;
+}
+
+export interface ConfigSaveAsMessage {
+  type: 'config:saveAs';
+  payload: { name: string; config: TermGridConfig };
 }
 
 export interface TerminalInputMessage {
@@ -127,9 +143,11 @@ export interface LayoutChangeMessage {
 
 export type WebviewMessage =
   | ConfigSaveMessage
+  | ConfigSaveAsMessage
   | TerminalStartMessage
   | TerminalStopMessage
   | TerminalRestartMessage
+  | TerminalRestartAllMessage
   | TerminalInputMessage
   | TerminalResizeMessage
   | CellUpdateMessage
@@ -193,5 +211,5 @@ export const DEFAULT_CONFIG: TermGridConfig = {
   ],
   mergedCells: [],
   theme: 'dark',
-  language: 'en',
+  language: 'zh',
 };

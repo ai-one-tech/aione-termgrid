@@ -127,11 +127,27 @@ export function registerCommands(
     vscode.window.showInformationMessage('Refreshed TermGrid configurations');
   });
 
-  // Open config
-  const openConfig = vscode.commands.registerCommand('termGrid.openConfig', async (filePath: string) => {
-    const document = await vscode.workspace.openTextDocument(filePath);
-    await vscode.window.showTextDocument(document);
+  // Open config directory
+  const openConfigDir = vscode.commands.registerCommand('termGrid.openConfigDir', async () => {
+    const configDir = configManager.getConfigDir();
+    if (!configDir) {
+      vscode.window.showWarningMessage('No workspace folder open');
+      return;
+    }
+
+    // Ensure directory exists
+    configManager.ensureConfigDir();
+
+    // Open the directory in VS Code
+    const uri = vscode.Uri.file(configDir);
+    await vscode.commands.executeCommand('vscode.openFolder', uri, { forceNewWindow: false });
   });
 
-  context.subscriptions.push(startAll, stopAll, restartAll, createNew, refreshTree, openConfig);
+  // Open config
+  const openConfig = vscode.commands.registerCommand('termGrid.openConfig', async (filePath: string) => {
+    const uri = vscode.Uri.file(filePath);
+    await vscode.commands.executeCommand('vscode.openWith', uri, 'aioneTermGrid.editor');
+  });
+
+  context.subscriptions.push(startAll, stopAll, restartAll, createNew, refreshTree, openConfigDir, openConfig);
 }

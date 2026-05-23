@@ -7,7 +7,7 @@ import './styles/index.css';
 const vscode = acquireVsCodeApi();
 
 // Store vscode API globally
-(window as any).vscode = vscode;
+(window as unknown as Record<string, unknown>).vscode = vscode;
 
 const root = ReactDOM.createRoot(document.getElementById('root')!);
 root.render(

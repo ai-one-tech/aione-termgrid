@@ -1,15 +1,43 @@
 {
   "name": "aione-termgrid",
   "displayName": "AiOne TermGrid",
-  "description": "Batch manage multiple terminals in a grid layout",
+  "description": "以网格布局批量管理多个终端，支持单元格合并、主题定制、多语言界面 Batch manage multiple terminals in a grid layout with support for merging cells, theme customization, and multi-language interface",
   "version": "0.1.0",
+  "publisher": "AiOne",
   "engines": {
     "vscode": "^1.85.0"
   },
-  "categories": [
-    "Other"
+  "license": "Apache-2.0",
+  "homepage": "https://github.com/ai-one-tech/aione-termgrid",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ai-one-tech/aione-termgrid.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ai-one-tech/aione-termgrid/issues",
+    "email": "tech@ai-one.org"
+  },
+  "keywords": [
+    "terminal",
+    "grid",
+    "multi-terminal",
+    "split",
+    "productivity",
+    "developer-tools",
+    "termgrid"
   ],
+  "categories": [
+    "Other",
+    "Programming Languages",
+    "Extension Packs"
+  ],
+  "icon": "media/icon.png",
+  "galleryBanner": {
+    "color": "#1e40af",
+    "theme": "dark"
+  },
   "activationEvents": [
+    "onStartupFinished",
     "onLanguage:termgrid",
     "workspaceContains:.term-grid/*.tg"
   ],
@@ -44,11 +72,11 @@
       }
     ],
     "views": {
-      "explorer": [
+      "termGridContainer": [
         {
           "id": "termGridSidebar",
           "name": "TermGrid",
-          "when": "workspaceHasTermGrid"
+          "icon": "media/icon.svg"
         }
       ]
     },
@@ -57,7 +85,7 @@
         {
           "id": "termGridContainer",
           "title": "TermGrid",
-          "icon": "media/termgrid-icon.svg"
+          "icon": "media/icon.svg"
         }
       ]
     },
@@ -83,6 +111,11 @@
         "icon": "$(add)"
       },
       {
+        "command": "termGrid.openConfigDir",
+        "title": "Open Config Folder",
+        "icon": "$(folder-opened)"
+      },
+      {
         "command": "termGrid.refreshTree",
         "title": "Refresh",
         "icon": "$(refresh)"
@@ -96,17 +129,17 @@
           "group": "navigation"
         },
         {
+          "command": "termGrid.openConfigDir",
+          "when": "view == termGridSidebar",
+          "group": "navigation"
+        },
+        {
           "command": "termGrid.refreshTree",
           "when": "view == termGridSidebar",
           "group": "navigation"
         }
       ],
       "view/item/context": [
-        {
-          "command": "termGrid.startAll",
-          "when": "view == termGridSidebar",
-          "group": "inline"
-        },
         {
           "command": "termGrid.stopAll",
           "when": "view == termGridSidebar",
@@ -134,18 +167,24 @@
     "vscode:prepublish": "npm run build"
   },
   "dependencies": {
-    "@xterm/addon-fit": "^0.11.0",
-    "@xterm/xterm": "^6.0.0",
+    "@xterm/addon-fit": "^0.12.0-beta.220",
+    "@xterm/addon-search": "^0.17.0-beta.220",
+    "@xterm/addon-unicode11": "^0.10.0-beta.220",
+    "@xterm/addon-webgl": "^0.20.0-beta.219",
+    "@xterm/xterm": "^6.1.0-beta.220",
+    "class-variance-authority": "^0.7.0",
+    "clsx": "^2.1.0",
+    "lucide-react": "^0.312.0",
     "node-pty": "^1.0.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-grid-layout": "^1.4.4",
-    "xterm": "^5.3.0",
-    "xterm-addon-fit": "^0.8.0",
+    "tailwind-merge": "^2.2.0",
     "yaml": "^2.3.4",
     "zod": "^3.22.4"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/node": "^20.11.0",
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
@@ -154,10 +193,15 @@
     "@vitejs/plugin-react": "^4.2.0",
     "autoprefixer": "^10.4.17",
     "concurrently": "^8.2.2",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.2",
+    "globals": "^17.6.0",
     "postcss": "^8.4.33",
     "tailwindcss": "^3.4.1",
+    "tailwindcss-animate": "^1.0.7",
     "tsup": "^8.0.0",
     "typescript": "^5.3.0",
+    "typescript-eslint": "^8.59.4",
     "vite": "^5.0.0",
     "vitest": "^1.2.0"
   }

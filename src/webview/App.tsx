@@ -1,22 +1,22 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { TermGridConfig, TerminalCell } from '../shared/schema';
 import { ExtensionMessage, WebviewMessage, TerminalStatus, Theme, Language } from '../shared/types';
-import { TRANSLATIONS } from '../shared/constants';
+import { TRANSLATIONS, TranslationKey } from '../shared/translations';
 import FloatingToolbar from './components/FloatingToolbar';
 import TerminalGrid from './components/TerminalGrid';
 import SettingsPanel from './components/SettingsPanel';
 import MaximizeModal from './components/MaximizeModal';
 import NewConfigModal from './components/NewConfigModal';
+import SaveAsModal from './components/SaveAsModal';
+import { getEditorThemeKind } from './theme';
 import './styles/index.css';
 
-interface AppProps {
-  vscode: any;
+interface VSCodeApi {
+  postMessage(message: unknown): void;
 }
 
-// Terminal data buffer for each cell
-interface TerminalDataBuffer {
-  cellId: string;
-  data: string;
+interface AppProps {
+  vscode: VSCodeApi;
 }
 
 const App: React.FC<AppProps> = ({ vscode }) => {
@@ -25,11 +25,28 @@ const App: React.FC<AppProps> = ({ vscode }) => {
   const [showSettings, setShowSettings] = useState(false);
   const [maximizedCell, setMaximizedCell] = useState<TerminalCell | null>(null);
   const [showNewConfig, setShowNewConfig] = useState(false);
-  const [theme, setTheme] = useState<Theme>('dark');
-  const [language, setLanguage] = useState<Language>('en');
+  const [showSaveAs, setShowSaveAs] = useState(false);
+  const [theme, setTheme] = useState<Theme>(() => getEditorThemeKind());
+  const [language, setLanguage] = useState<Language>('zh');
   const [terminalStatuses, setTerminalStatuses] = useState<Record<string, TerminalStatus>>({});
-  const [terminalData, setTerminalData] = useState<Record<string, string>>({});
+  const [, setTerminalData] = useState<Record<string, string>>({});
   const terminalRefs = useRef<Record<string, { write: (data: string) => void; clear: () => void }>>({});
+
+  useEffect(() => {
+    const syncEditorTheme = () => {
+      setTheme(getEditorThemeKind());
+    };
+
+    syncEditorTheme();
+
+    const observer = new MutationObserver(syncEditorTheme);
+    observer.observe(document.body, {
+      attributes: true,
+      attributeFilter: ['class', 'style'],
+    });
+
+    return () => observer.disconnect();
+  }, []);
 
   // Listen for messages from extension host
   useEffect(() => {
@@ -40,8 +57,7 @@ const App: React.FC<AppProps> = ({ vscode }) => {
         case 'config:loaded':
         case 'config:updated':
           setConfig(message.payload.config);
-          setTheme(message.payload.config.theme || 'dark');
-          setLanguage((message.payload.config.language as Language) || 'en');
+          setLanguage((message.payload.config.language as Language) || 'zh');
           break;
         case 'terminal:data':
           setTerminalData((prev) => ({
@@ -88,23 +104,22 @@ const App: React.FC<AppProps> = ({ vscode }) => {
     }
   }, [config, sendMessage]);
 
+  // Save as configuration
+  const handleSaveAs = useCallback((name: string) => {
+    if (config) {
+      sendMessage({
+        type: 'config:saveAs',
+        payload: { name, config },
+      });
+      setIsDirty(false);
+    }
+  }, [config, sendMessage]);
+
   // Update configuration
   const handleConfigUpdate = useCallback((newConfig: TermGridConfig) => {
     setConfig(newConfig);
     setIsDirty(true);
   }, []);
-
-  // Start all terminals
-  const handleStartAll = useCallback(() => {
-    if (config) {
-      config.cells.forEach((cell) => {
-        sendMessage({
-          type: 'terminal:start',
-          payload: { cellId: cell.id },
-        });
-      });
-    }
-  }, [config, sendMessage]);
 
   // Stop all terminals
   const handleStopAll = useCallback(() => {
@@ -120,26 +135,11 @@ const App: React.FC<AppProps> = ({ vscode }) => {
 
   // Restart all terminals
   const handleRestartAll = useCallback(() => {
-    if (config) {
-      config.cells.forEach((cell) => {
-        sendMessage({
-          type: 'terminal:restart',
-          payload: { cellId: cell.id },
-        });
-      });
-    }
-  }, [config, sendMessage]);
-
-  // Theme toggle
-  const toggleTheme = useCallback(() => {
-    setTheme((prev) => {
-      const newTheme = prev === 'dark' ? 'light' : 'dark';
-      if (config) {
-        handleConfigUpdate({ ...config, theme: newTheme });
-      }
-      return newTheme;
+    sendMessage({
+      type: 'terminal:restartAll',
+      payload: {},
     });
-  }, [config, handleConfigUpdate]);
+  }, [sendMessage]);
 
   // Language change
   const changeLanguage = useCallback((lang: Language) => {
@@ -151,7 +151,7 @@ const App: React.FC<AppProps> = ({ vscode }) => {
 
   // Translation helper
   const t = useCallback(
-    (key: keyof typeof TRANSLATIONS.en) => {
+    (key: TranslationKey) => {
       return TRANSLATIONS[language]?.[key] || TRANSLATIONS.en[key];
     },
     [language]
@@ -185,73 +185,74 @@ const App: React.FC<AppProps> = ({ vscode }) => {
   if (!config) {
     return (
       <div className={`app-container ${theme}`}>
-        <div className="loading">Loading...</div>
+        <div className="loading">{t('loading')}</div>
       </div>
     );
   }
 
   return (
-    <div className={`app-container ${theme}`}>
+    <div className={`app-container flex flex-col h-screen w-screen overflow-hidden ${theme}`}>
       <FloatingToolbar
-        config={config}
         isDirty={isDirty}
-        theme={theme}
-        language={language}
         onSave={handleSave}
-        onStartAll={handleStartAll}
+        onSaveAs={() => setShowSaveAs(true)}
         onStopAll={handleStopAll}
         onRestartAll={handleRestartAll}
         onOpenSettings={() => setShowSettings(true)}
-        onToggleTheme={toggleTheme}
+        t={t}
+      />
+
+      <div className="flex-1 overflow-hidden">
+        <TerminalGrid
+          config={config}
+          theme={theme}
+          terminalStatuses={terminalStatuses}
+          onConfigUpdate={handleConfigUpdate}
+          onMaximize={setMaximizedCell}
+          onInput={handleTerminalInput}
+          onResize={handleTerminalResize}
+          registerTerminalRef={registerTerminalRef}
+          t={t}
+        />
+      </div>
+
+      <SettingsPanel
+        config={config}
+        language={language}
+        open={showSettings}
+        onOpenChange={setShowSettings}
+        onSave={handleSave}
+        onConfigUpdate={handleConfigUpdate}
         onChangeLanguage={changeLanguage}
         t={t}
       />
 
-      <TerminalGrid
-        config={config}
+      <MaximizeModal
+        cell={maximizedCell}
         theme={theme}
-        terminalStatuses={terminalStatuses}
-        onConfigUpdate={handleConfigUpdate}
-        onMaximize={setMaximizedCell}
-        onInput={handleTerminalInput}
-        onResize={handleTerminalResize}
-        registerTerminalRef={registerTerminalRef}
+        status={maximizedCell ? terminalStatuses[maximizedCell.id] || 'stopped' : 'stopped'}
+        open={!!maximizedCell}
+        onOpenChange={(open) => !open && setMaximizedCell(null)}
+        onInput={(data) => maximizedCell && handleTerminalInput(maximizedCell.id, data)}
         t={t}
       />
 
-      {showSettings && (
-        <SettingsPanel
-          config={config}
-          theme={theme}
-          onClose={() => setShowSettings(false)}
-          onSave={handleSave}
-          onConfigUpdate={handleConfigUpdate}
-          t={t}
-        />
-      )}
+      <NewConfigModal
+        open={showNewConfig}
+        onOpenChange={setShowNewConfig}
+        onCreate={() => {
+          // Handle new config creation
+          setShowNewConfig(false);
+        }}
+        t={t}
+      />
 
-      {maximizedCell && (
-        <MaximizeModal
-          cell={maximizedCell}
-          theme={theme}
-          status={terminalStatuses[maximizedCell.id] || 'stopped'}
-          onClose={() => setMaximizedCell(null)}
-          onInput={(data) => handleTerminalInput(maximizedCell.id, data)}
-          t={t}
-        />
-      )}
-
-      {showNewConfig && (
-        <NewConfigModal
-          theme={theme}
-          onClose={() => setShowNewConfig(false)}
-          onCreate={(name, layout) => {
-            // Handle new config creation
-            setShowNewConfig(false);
-          }}
-          t={t}
-        />
-      )}
+      <SaveAsModal
+        open={showSaveAs}
+        onOpenChange={setShowSaveAs}
+        onSaveAs={handleSaveAs}
+        t={t}
+      />
     </div>
   );
 };

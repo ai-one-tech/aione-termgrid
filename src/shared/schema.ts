@@ -29,9 +29,13 @@ export const GridLayoutSchema = z.object({
 });
 
 // Merged cell definition
+// start/end are [row, col] in grid coordinates
 export const MergedCellSchema = z.object({
-  start: z.tuple([z.number(), z.number()]),
-  end: z.tuple([z.number(), z.number()]),
+  id: z.string(),
+  startRow: z.number().int().min(0),
+  startCol: z.number().int().min(0),
+  endRow: z.number().int().min(0),
+  endCol: z.number().int().min(0),
 });
 
 // Main configuration schema
@@ -41,7 +45,7 @@ export const TermGridConfigSchema = z.object({
   cells: z.array(TerminalCellSchema).min(1).max(16),
   mergedCells: z.array(MergedCellSchema).optional().default([]),
   theme: z.enum(['dark', 'light']).optional().default('dark'),
-  language: z.string().optional().default('en'),
+  language: z.string().optional().default('zh'),
 });
 
 // Layout preset
