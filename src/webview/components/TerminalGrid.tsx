@@ -35,7 +35,22 @@ const TerminalGrid: React.FC<TerminalGridProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const [gridWidth, setGridWidth] = useState(1200);
   const [containerHeight, setContainerHeight] = useState(400);
-  const [rowHeight, setRowHeight] = useState(Math.floor(400 / (layout.rows * 3)));
+
+  const margin = 6;
+  const containerPadding = 6;
+
+  // Calculate rowHeight so that total grid height fits within container
+  const calculateRowHeight = useCallback((height: number, rows: number) => {
+    const totalGridRows = rows * 3;
+    // Total height = containerPadding*2 + (totalGridRows-1)*margin + totalGridRows*rowHeight
+    // Solve for rowHeight:
+    const availableHeight = height - containerPadding * 2 - (totalGridRows - 1) * margin;
+    return Math.max(20, Math.floor(availableHeight / totalGridRows));
+  }, []);
+
+  const [rowHeight, setRowHeight] = useState(() =>
+    calculateRowHeight(400, layout.rows)
+  );
 
   // Resize observer to handle container size changes
   useEffect(() => {
@@ -46,16 +61,14 @@ const TerminalGrid: React.FC<TerminalGridProps> = ({
         const { width, height } = entry.contentRect;
         setGridWidth(width);
         setContainerHeight(height);
-        
-        const calculatedRowHeight = Math.max(20, Math.floor(height / (layout.rows * 3)));
-        setRowHeight(calculatedRowHeight);
+        setRowHeight(calculateRowHeight(height, layout.rows));
       }
     });
 
     observer.observe(containerRef.current);
 
     return () => observer.disconnect();
-  }, [layout.rows]);
+  }, [layout.rows, calculateRowHeight]);
 
   // Generate layout items with merged cell support
   const generateLayout = (): GridLayoutItem[] => {

@@ -69,10 +69,8 @@ const CellConfigDrawer: React.FC<CellConfigDrawerProps> = ({
         command: localCell.command,
         order: localCell.order,
         delay: localCell.delay,
+        borderColor: localCell.borderColor,
       };
-      if (localCell.borderColor) {
-        updates.borderColor = localCell.borderColor;
-      }
       onSave(localCell.id, updates);
     }
     onOpenChange(false);
