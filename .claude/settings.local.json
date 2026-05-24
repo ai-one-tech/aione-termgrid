@@ -6,7 +6,8 @@
       "Bash(git:*)",
       "Bash(npm:*)",
       "mcp__ide__getDiagnostics",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(npx vitest:*)"
     ]
   }
 }

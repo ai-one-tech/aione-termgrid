@@ -1,16 +1,56 @@
 import * as path from 'path';
 import { describe, it, expect } from 'vitest';
-import { resolveShellCommand, parseCommand, getPlatform, resolveCwd, getDefaultShell } from '../shellResolver';
+import {
+  resolveShellCommand,
+  parseCommand,
+  getPlatform,
+  resolveCwd,
+  getDefaultShell,
+  resolveCommandText,
+} from '../shellResolver';
 
 describe('shellResolver', () => {
+  describe('resolveCommandText', () => {
+    it('should resolve default command text', () => {
+      const result = resolveCommandText({ default: 'echo 1' });
+      expect(result).toBe('echo 1');
+    });
+
+    it('should trim command text', () => {
+      const result = resolveCommandText({ default: '  echo 1  ' });
+      expect(result).toBe('echo 1');
+    });
+
+    it('should return undefined for empty command', () => {
+      const result = resolveCommandText({ default: '   ' });
+      expect(result).toBeUndefined();
+    });
+
+    it('should handle platform-specific command text', () => {
+      const result = resolveCommandText({
+        win32: 'echo win32',
+        darwin: 'echo darwin',
+        linux: 'echo linux',
+        default: 'echo default',
+      });
+      const expectedCommands = {
+        win32: 'echo win32',
+        darwin: 'echo darwin',
+        linux: 'echo linux',
+        unknown: 'echo default',
+      };
+      expect(result).toBe(expectedCommands[getPlatform()]);
+    });
+  });
+
   describe('resolveShellCommand', () => {
-    it('should run configured command through default shell', () => {
+    it('should support legacy one-shot execution through default shell', () => {
       const result = resolveShellCommand({ default: 'echo 1' });
       expect(result.shell).toBe(getDefaultShell().shell);
       expect(result.args).toContain('echo 1');
     });
 
-    it('should preserve command with arguments as one shell command', () => {
+    it('should preserve legacy command with arguments as one shell command', () => {
       const result = resolveShellCommand({ default: 'bash -c "echo hello"' });
       expect(result.shell).toBe(getDefaultShell().shell);
       expect(result.args).toContain('bash -c "echo hello"');

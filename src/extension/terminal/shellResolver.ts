@@ -108,7 +108,8 @@ export function resolveCommandText(
 }
 
 /**
- * Resolve shell command from platform command object
+ * Resolve shell command from platform command object for legacy one-shot execution.
+ * Interactive terminals should use getDefaultShell() and inject command text through PTY input.
  */
 export function resolveShellCommand(
   command: { win32?: string; darwin?: string; linux?: string; default: string }

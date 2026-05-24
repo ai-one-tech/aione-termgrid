@@ -1,9 +1,29 @@
 import * as os from 'os';
+import * as child_process from 'child_process';
 import * as pty from 'node-pty';
 import { TerminalCell } from '../../shared/schema';
 import { TerminalStatus } from '../../shared/types';
-import { resolveShellCommand, resolveCwd } from './shellResolver';
+import { getDefaultShell, resolveCommandText, resolveCwd } from './shellResolver';
 import { ExecutionQueue } from './executionQueue';
+
+/**
+ * Kill an entire process tree on Windows using taskkill.
+ * On non-Windows platforms this is a no-op (pty.kill sends SIGTERM to the group).
+ */
+function killProcessTree(pid: number): void {
+  if (os.platform() === 'win32') {
+    try {
+      console.log(`[TermGrid] killProcessTree: taskkill /T /F /PID ${pid}`);
+      child_process.execSync(`taskkill /T /F /PID ${pid}`, {
+        stdio: 'ignore',
+        timeout: 5000,
+      });
+      console.log(`[TermGrid] killProcessTree: PID ${pid} killed successfully`);
+    } catch (err) {
+      console.warn(`[TermGrid] killProcessTree: taskkill failed for PID ${pid}`, err);
+    }
+  }
+}
 
 export interface PtyProcess {
   id: string;
@@ -44,7 +64,8 @@ export class PtyManager {
     try {
       this.options.onStatusChange(cell.id, 'pending');
 
-      const shellCmd = resolveShellCommand(cell.command ?? { default: '' });
+      const shellCmd = getDefaultShell();
+      const initialCommand = resolveCommandText(cell.command ?? { default: '' });
       const cwd = resolveCwd(cell.cwd, this.options.workspaceRoot);
       const shell = shellCmd.shell.trim();
 
@@ -66,6 +87,8 @@ export class PtyManager {
 
       const ptyProcess = pty.spawn(shell, shellCmd.args, ptyOptions);
 
+      console.log(`[TermGrid] startCell: cell=${cell.id} shell="${shell}" pid=${ptyProcess.pid}`);
+
       const processData: PtyProcess = {
         id: cell.id,
         pty: ptyProcess,
@@ -79,6 +102,10 @@ export class PtyManager {
       });
 
       ptyProcess.onExit(({ exitCode }: { exitCode: number }) => {
+        // Only handle if still tracked (stopCell already handles cleanup when called explicitly)
+        if (!this.processes.has(cell.id)) {
+          return;
+        }
         this.processes.delete(cell.id);
         this.options.onStatusChange(cell.id, 'stopped');
         this.options.onExit(cell.id, exitCode);
@@ -86,6 +113,10 @@ export class PtyManager {
 
       this.processes.set(cell.id, processData);
       this.options.onStatusChange(cell.id, 'running');
+
+      if (initialCommand) {
+        ptyProcess.write(`${initialCommand}\r`);
+      }
     } catch (error) {
       this.options.onStatusChange(cell.id, 'error');
       console.error(`Failed to start terminal ${cell.id}:`, error);
@@ -103,11 +134,14 @@ export class PtyManager {
     }
 
     try {
+      console.log(`[TermGrid] stopCell: cell=${cellId} pid=${processData.pty.pid}`);
+      killProcessTree(processData.pty.pid);
       processData.pty.kill();
+      console.log(`[TermGrid] stopCell: pty.kill() called for pid=${processData.pty.pid}`);
       this.processes.delete(cellId);
       this.options.onStatusChange(cellId, 'stopped');
     } catch (error) {
-      console.error(`Failed to stop terminal ${cellId}:`, error);
+      console.error(`[TermGrid] stopCell: failed for cell=${cellId} pid=${processData.pty.pid}`, error);
       throw error;
     }
   }
@@ -222,9 +256,11 @@ export class PtyManager {
 
     for (const [cellId, processData] of this.processes) {
       try {
+        console.log(`[TermGrid] dispose: cell=${cellId} pid=${processData.pty.pid}`);
+        killProcessTree(processData.pty.pid);
         processData.pty.kill();
       } catch (error) {
-        console.error(`Failed to kill terminal ${cellId}:`, error);
+        console.error(`[TermGrid] dispose: failed for cell=${cellId} pid=${processData.pty.pid}`, error);
       }
     }
 
