@@ -120,18 +120,21 @@ textarea {
   overflow: hidden;
 }
 
-/* 强制所有 grid cell 的卡片边框使用 VSCode 主题边框色 */
-.grid-cell > div {
-  border-color: var(--tg-border) !important;
+/* 所有 grid cell 的卡片默认使用 VSCode 主题边框色，2px 边框 */
+.grid-cell .rounded-lg.border {
+  border-color: var(--tg-border);
+  border-width: 2px;
 }
 
-.grid-cell > div[style*="--cell-border-color"] {
-  box-shadow: 0 0 12px 2px color-mix(in srgb, var(--cell-border-color) 35%, transparent), 0 0 4px 0px color-mix(in srgb, var(--cell-border-color) 20%, transparent) !important;
+/* 有自定义边框色的 cell 使用配置的颜色，2px 边框 */
+.grid-cell .rounded-lg.border[style*="--cell-border-color"] {
+  border-color: var(--cell-border-color);
+  border-width: 2px;
 }
 
 /* CardHeader 底部分隔线统一用淡化边框色 */
-.grid-cell > div .border-b {
-  border-color: var(--tg-border) !important;
+.grid-cell .border-b {
+  border-color: var(--tg-border);
 }
 
 /* Grid resizer handles */

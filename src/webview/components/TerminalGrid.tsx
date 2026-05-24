@@ -126,6 +126,14 @@ function sizesToTemplate(sizes: number[]): string {
   return sizes.map((s) => `${s}fr`).join(' ');
 }
 
+function getConfiguredSizes(configuredSizes: number[] | undefined, expectedLength: number): number[] | null {
+  if (!configuredSizes || configuredSizes.length !== expectedLength) {
+    return null;
+  }
+
+  return configuredSizes;
+}
+
 const TerminalGrid: React.FC<TerminalGridProps> = ({
   config,
   theme,
@@ -137,7 +145,7 @@ const TerminalGrid: React.FC<TerminalGridProps> = ({
   registerTerminalRef,
   t,
 }) => {
-  const { layout, cells } = config;
+  const { cells } = config;
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Build the cell grid mapping
@@ -146,18 +154,22 @@ const TerminalGrid: React.FC<TerminalGridProps> = ({
   const columnCellIds = useMemo(() => getColumnCellIds(cellGrid), [cellGrid]);
 
   // Column and row sizes (percentages)
-  const [colSizes, setColSizes] = useState<number[]>(() =>
-    getDefaultSizes(columnCellIds.map((ids) => ids[0]).filter(Boolean) as string[], 'col', config)
+  const configuredColSizes = useMemo(
+    () =>
+      getConfiguredSizes(config.layout.colWidths, columnCellIds.length) ||
+      getDefaultSizes(columnCellIds.map((ids) => ids[0]).filter(Boolean) as string[], 'col', config),
+    [config, columnCellIds]
   );
-  const [rowSizes, setRowSizes] = useState<number[]>(() =>
-    getDefaultSizes(rowCellIds.map((ids) => ids[0]).filter(Boolean) as string[], 'row', config)
+  const configuredRowSizes = useMemo(
+    () =>
+      getConfiguredSizes(config.layout.rowHeights, rowCellIds.length) ||
+      getDefaultSizes(rowCellIds.map((ids) => ids[0]).filter(Boolean) as string[], 'row', config),
+    [config, rowCellIds]
   );
-
-  // Sync sizes when config changes
-  useEffect(() => {
-    setColSizes(getDefaultSizes(columnCellIds.map((ids) => ids[0]).filter(Boolean) as string[], 'col', config));
-    setRowSizes(getDefaultSizes(rowCellIds.map((ids) => ids[0]).filter(Boolean) as string[], 'row', config));
-  }, [config, columnCellIds, rowCellIds]);
+  const [dragColSizes, setDragColSizes] = useState<number[] | null>(null);
+  const [dragRowSizes, setDragRowSizes] = useState<number[] | null>(null);
+  const colSizes = dragColSizes || configuredColSizes;
+  const rowSizes = dragRowSizes || configuredRowSizes;
 
   // Drag state for column resize
   const [colDrag, setColDrag] = useState<{ index: number; startX: number; startSizes: number[] } | null>(null);
@@ -191,7 +203,7 @@ const TerminalGrid: React.FC<TerminalGridProps> = ({
         if (leftSize > 5 && rightSize > 5) {
           newSizes[colDrag.index] = leftSize;
           newSizes[colDrag.index + 1] = rightSize;
-          setColSizes(newSizes);
+          setDragColSizes(newSizes);
         }
       }
 
@@ -207,46 +219,34 @@ const TerminalGrid: React.FC<TerminalGridProps> = ({
         if (topSize > 5 && bottomSize > 5) {
           newSizes[rowDrag.index] = topSize;
           newSizes[rowDrag.index + 1] = bottomSize;
-          setRowSizes(newSizes);
+          setDragRowSizes(newSizes);
         }
       }
     };
 
     const handleMouseUp = () => {
       if (colDrag) {
-        // Update colSpan based on new sizes
-        const totalCols = layout.cols;
-        const updatedCells = cells.map((cell) => {
-          for (let c = 0; c < columnCellIds.length; c++) {
-            const idx = columnCellIds[c].indexOf(cell.id);
-            if (idx !== -1) {
-              const size = colSizes[c] || 0;
-              const newSpan = Math.max(1, Math.round((size / 100) * totalCols));
-              return { ...cell, colSpan: newSpan };
-            }
-          }
-          return cell;
+        onConfigUpdate({
+          ...config,
+          layout: {
+            ...config.layout,
+            colWidths: colSizes,
+          },
         });
-        onConfigUpdate({ ...config, cells: updatedCells });
         setColDrag(null);
+        setDragColSizes(null);
       }
 
       if (rowDrag) {
-        // Update rowSpan based on new sizes
-        const totalRows = layout.rows;
-        const updatedCells = cells.map((cell) => {
-          for (let r = 0; r < rowCellIds.length; r++) {
-            const idx = rowCellIds[r].indexOf(cell.id);
-            if (idx !== -1) {
-              const size = rowSizes[r] || 0;
-              const newSpan = Math.max(1, Math.round((size / 100) * totalRows));
-              return { ...cell, rowSpan: newSpan };
-            }
-          }
-          return cell;
+        onConfigUpdate({
+          ...config,
+          layout: {
+            ...config.layout,
+            rowHeights: rowSizes,
+          },
         });
-        onConfigUpdate({ ...config, cells: updatedCells });
         setRowDrag(null);
+        setDragRowSizes(null);
       }
     };
 
@@ -258,7 +258,7 @@ const TerminalGrid: React.FC<TerminalGridProps> = ({
         window.removeEventListener('mouseup', handleMouseUp);
       };
     }
-  }, [colDrag, rowDrag, colSizes, rowSizes, cells, config, layout.cols, layout.rows, columnCellIds, rowCellIds, onConfigUpdate]);
+  }, [colDrag, rowDrag, colSizes, rowSizes, config, onConfigUpdate]);
 
   // Handle cell stop
   const handleCellStop = useCallback((cellId: string) => {
