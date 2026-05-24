@@ -4,6 +4,13 @@ import { TermGridConfig } from '../../shared/schema';
 import { TerminalStatus } from '../../shared/types';
 import { PtyManager } from '../terminal/ptyManager';
 
+// Registry to look up PtyManager by document file path (for sidebar commands)
+const editorRegistry = new Map<string, { ptyManager: PtyManager; getConfig: () => TermGridConfig | undefined }>();
+
+export function getEditorPtyManager(filePath: string): { ptyManager: PtyManager; getConfig: () => TermGridConfig | undefined } | undefined {
+  return editorRegistry.get(filePath);
+}
+
 export class TermGridEditorProvider implements vscode.CustomTextEditorProvider {
   private static readonly viewType = 'aioneTermGrid.editor';
 
@@ -52,11 +59,18 @@ export class TermGridEditorProvider implements vscode.CustomTextEditorProvider {
       },
     });
 
+    // Register this editor's PtyManager in the registry
+    editorRegistry.set(document.uri.fsPath, {
+      ptyManager,
+      getConfig: () => config,
+    });
+
     const disposePanelResources = () => {
       if (disposed) {
         return;
       }
       disposed = true;
+      editorRegistry.delete(document.uri.fsPath);
       for (const d of panelDisposables.splice(0)) {
         try {
           d.dispose();

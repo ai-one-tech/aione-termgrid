@@ -7,6 +7,7 @@ export default defineConfig({
   target: 'node18',
   platform: 'node',
   external: ['vscode', 'node-pty'],
+  noExternal: ['yaml', 'zod'],
   bundle: true,
   sourcemap: true,
   clean: true,

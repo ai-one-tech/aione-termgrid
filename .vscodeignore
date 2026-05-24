@@ -1,7 +1,6 @@
 .vscode/
-node_modules/
-out/
-dist/
+node_modules/**
+!node_modules/node-pty/**
 src/
 tsconfig.json
 tsconfig.extension.json

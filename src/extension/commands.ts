@@ -1,19 +1,8 @@
 import * as vscode from 'vscode';
 import { ConfigManager } from './config/configManager';
-import { TermGridTreeProvider } from './providers/termGridTreeProvider';
+import { TermGridTreeProvider, ConfigTreeItem } from './providers/termGridTreeProvider';
 import { DEFAULT_CONFIG } from '../shared/types';
-import { PtyManager } from './terminal/ptyManager';
-
-// Global PTY manager for command palette operations
-let globalPtyManager: PtyManager | null = null;
-
-export function getGlobalPtyManager(): PtyManager | null {
-  return globalPtyManager;
-}
-
-export function setGlobalPtyManager(manager: PtyManager | null): void {
-  globalPtyManager = manager;
-}
+import { getEditorPtyManager } from './providers/termGridEditorProvider';
 
 export function registerCommands(
   context: vscode.ExtensionContext,
@@ -21,31 +10,27 @@ export function registerCommands(
   treeProvider: TermGridTreeProvider
 ): void {
   // Start all terminals
-  const startAll = vscode.commands.registerCommand('termGrid.startAll', async () => {
-    const editor = vscode.window.activeTextEditor;
-    if (!editor) {
-      vscode.window.showWarningMessage('No active TermGrid editor');
+  const startAll = vscode.commands.registerCommand('termGrid.startAll', async (treeItem?: ConfigTreeItem) => {
+    const filePath = treeItem?.filePath;
+    if (!filePath) {
+      vscode.window.showWarningMessage('No TermGrid config selected');
       return;
     }
 
-    const config = await configManager.readConfig(editor.document.uri.fsPath);
+    const entry = getEditorPtyManager(filePath);
+    if (!entry) {
+      vscode.window.showWarningMessage('Open this config in TermGrid editor first');
+      return;
+    }
+
+    const config = entry.getConfig();
     if (!config) {
       vscode.window.showErrorMessage('Failed to load TermGrid configuration');
       return;
     }
 
-    if (!globalPtyManager) {
-      const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-      globalPtyManager = new PtyManager({
-        workspaceRoot,
-        onData: () => {},
-        onStatusChange: () => {},
-        onExit: () => {},
-      });
-    }
-
     try {
-      await globalPtyManager.startAll(config.cells);
+      await entry.ptyManager.startAll(config.cells);
       vscode.window.showInformationMessage(`Started ${config.cells.length} terminals`);
     } catch (error) {
       vscode.window.showErrorMessage(`Failed to start terminals: ${error}`);
@@ -53,14 +38,21 @@ export function registerCommands(
   });
 
   // Stop all terminals
-  const stopAll = vscode.commands.registerCommand('termGrid.stopAll', async () => {
-    if (!globalPtyManager) {
-      vscode.window.showWarningMessage('No terminals are running');
+  const stopAll = vscode.commands.registerCommand('termGrid.stopAll', async (treeItem?: ConfigTreeItem) => {
+    const filePath = treeItem?.filePath;
+    if (!filePath) {
+      vscode.window.showWarningMessage('No TermGrid config selected');
+      return;
+    }
+
+    const entry = getEditorPtyManager(filePath);
+    if (!entry) {
+      vscode.window.showWarningMessage('Open this config in TermGrid editor first');
       return;
     }
 
     try {
-      await globalPtyManager.stopAll();
+      await entry.ptyManager.stopAll();
       vscode.window.showInformationMessage('Stopped all terminals');
     } catch (error) {
       vscode.window.showErrorMessage(`Failed to stop terminals: ${error}`);
@@ -68,31 +60,27 @@ export function registerCommands(
   });
 
   // Restart all terminals
-  const restartAll = vscode.commands.registerCommand('termGrid.restartAll', async () => {
-    const editor = vscode.window.activeTextEditor;
-    if (!editor) {
-      vscode.window.showWarningMessage('No active TermGrid editor');
+  const restartAll = vscode.commands.registerCommand('termGrid.restartAll', async (treeItem?: ConfigTreeItem) => {
+    const filePath = treeItem?.filePath;
+    if (!filePath) {
+      vscode.window.showWarningMessage('No TermGrid config selected');
       return;
     }
 
-    const config = await configManager.readConfig(editor.document.uri.fsPath);
+    const entry = getEditorPtyManager(filePath);
+    if (!entry) {
+      vscode.window.showWarningMessage('Open this config in TermGrid editor first');
+      return;
+    }
+
+    const config = entry.getConfig();
     if (!config) {
       vscode.window.showErrorMessage('Failed to load TermGrid configuration');
       return;
     }
 
-    if (!globalPtyManager) {
-      const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-      globalPtyManager = new PtyManager({
-        workspaceRoot,
-        onData: () => {},
-        onStatusChange: () => {},
-        onExit: () => {},
-      });
-    }
-
     try {
-      await globalPtyManager.restartAll(config.cells);
+      await entry.ptyManager.restartAll(config.cells);
       vscode.window.showInformationMessage(`Restarted ${config.cells.length} terminals`);
     } catch (error) {
       vscode.window.showErrorMessage(`Failed to restart terminals: ${error}`);

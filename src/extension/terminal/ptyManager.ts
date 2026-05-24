@@ -1,10 +1,27 @@
 import * as os from 'os';
 import * as child_process from 'child_process';
-import * as pty from 'node-pty';
+import type * as Pty from 'node-pty';
 import { TerminalCell } from '../../shared/schema';
 import { TerminalStatus } from '../../shared/types';
 import { getDefaultShell, resolveCommandText, resolveCwd } from './shellResolver';
 import { ExecutionQueue } from './executionQueue';
+
+/**
+ * Lazy-load node-pty to prevent extension activation failure
+ * when the native module is unavailable (e.g. missing in VSIX).
+ */
+let _pty: typeof Pty | null = null;
+
+function getPty(): typeof Pty {
+  if (!_pty) {
+    try {
+      _pty = require('node-pty');
+    } catch (err) {
+      throw new Error('node-pty module not available. Terminal features will not work.');
+    }
+  }
+  return _pty;
+}
 
 /**
  * Kill an entire process tree on Windows using taskkill.
@@ -27,7 +44,7 @@ function killProcessTree(pid: number): void {
 
 export interface PtyProcess {
   id: string;
-  pty: pty.IPty;
+  pty: Pty.IPty;
   cell: TerminalCell;
   status: TerminalStatus;
   startTime: number;
@@ -73,7 +90,7 @@ export class PtyManager {
         throw new Error(`Resolved empty shell for terminal ${cell.id}`);
       }
 
-      const ptyOptions: pty.IPtyForkOptions | pty.IWindowsPtyForkOptions = {
+      const ptyOptions: Pty.IPtyForkOptions | Pty.IWindowsPtyForkOptions = {
         name: 'xterm-color',
         cwd,
         env: {
@@ -85,7 +102,7 @@ export class PtyManager {
         ...(os.platform() === 'win32' ? { useConpty: false } : {}),
       };
 
-      const ptyProcess = pty.spawn(shell, shellCmd.args, ptyOptions);
+      const ptyProcess = getPty().spawn(shell, shellCmd.args, ptyOptions);
 
       console.log(`[TermGrid] startCell: cell=${cell.id} shell="${shell}" pid=${ptyProcess.pid}`);
 
