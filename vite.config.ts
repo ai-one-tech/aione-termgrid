@@ -21,6 +21,7 @@ export default defineConfig({
         main: path.resolve(__dirname, 'src/webview/main.tsx'),
       },
       output: {
+        preserveModules: false,
         entryFileNames: 'assets/[name].js',
         chunkFileNames: 'assets/[name].js',
         assetFileNames: 'assets/[name].[ext]',

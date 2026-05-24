@@ -120,18 +120,37 @@ textarea {
   overflow: hidden;
 }
 
-/* react-grid-layout overrides */
-.react-grid-layout {
-  position: relative;
+/* 强制所有 grid cell 的卡片边框使用 VSCode 主题边框色 */
+.grid-cell > div {
+  border-color: var(--tg-border) !important;
 }
 
-.react-grid-item {
-  transition: all 200ms ease;
+.grid-cell > div[style*="--cell-border-color"] {
+  box-shadow: 0 0 12px 2px color-mix(in srgb, var(--cell-border-color) 35%, transparent), 0 0 4px 0px color-mix(in srgb, var(--cell-border-color) 20%, transparent) !important;
 }
 
-.react-grid-item.react-grid-placeholder {
-  background: var(--vscode-editor-selectionBackground, rgba(14, 99, 156, 0.18));
-  opacity: 0.6;
+/* CardHeader 底部分隔线统一用淡化边框色 */
+.grid-cell > div .border-b {
+  border-color: var(--tg-border) !important;
+}
+
+/* Grid resizer handles */
+.grid-resizer-col {
+  background: transparent;
+  transition: background 0.2s;
+}
+
+.grid-resizer-col:hover {
+  background: var(--tg-border-strong);
+}
+
+.grid-resizer-row {
+  background: transparent;
+  transition: background 0.2s;
+}
+
+.grid-resizer-row:hover {
+  background: var(--tg-border-strong);
 }
 
 /* Custom animations */

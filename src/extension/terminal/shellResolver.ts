@@ -1,5 +1,6 @@
 import * as os from 'os';
 import * as path from 'path';
+import { execSync } from 'child_process';
 
 /**
  * Resolves the appropriate shell command for the current platform.
@@ -13,15 +14,55 @@ export interface ShellCommand {
 const PLATFORM = os.platform();
 
 /**
+ * Find the full path of an executable on Windows using 'where' command
+ */
+function findWindowsExecutable(name: string): string | undefined {
+  try {
+    const result = execSync(`where "${name}"`, { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] });
+    const paths = result.trim().split('\r\n').filter(p => p.trim());
+    return paths[0];
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Get the full path to PowerShell on Windows
+ */
+function getWindowsPowerShellPath(): string {
+  // Try PowerShell Core (pwsh) first, then Windows PowerShell
+  const pwshPath = findWindowsExecutable('pwsh.exe');
+  if (pwshPath) return pwshPath;
+
+  const psPath = findWindowsExecutable('powershell.exe');
+  if (psPath) return psPath;
+
+  // Fallback to well-known path
+  return 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe';
+}
+
+/**
+ * Get the full path to cmd.exe on Windows
+ */
+function getWindowsCmdPath(): string {
+  const cmdPath = findWindowsExecutable('cmd.exe');
+  if (cmdPath) return cmdPath;
+
+  // Fallback to well-known path
+  return 'C:\\Windows\\System32\\cmd.exe';
+}
+
+/**
  * Detect the default shell for the current platform
+ * Returns full path on Windows
  */
 export function detectDefaultShell(): string {
   if (PLATFORM === 'win32') {
     // Try to find PowerShell or cmd
-    const powershellPath = process.env.PSModulePath
-      ? 'powershell.exe'
-      : undefined;
-    return powershellPath || process.env.COMSPEC || 'cmd.exe';
+    if (process.env.PSModulePath) {
+      return getWindowsPowerShellPath();
+    }
+    return getWindowsCmdPath();
   }
 
   // For Unix-like systems, use the user's shell from passwd or env
@@ -29,12 +70,24 @@ export function detectDefaultShell(): string {
 }
 
 /**
- * Resolve shell command from platform command object
+ * Get default shell as ShellCommand object
+ * Used when no command is specified for a terminal cell
  */
-export function resolveShellCommand(
+export function getDefaultShell(): ShellCommand {
+  const shell = detectDefaultShell();
+  return {
+    shell,
+    args: [],
+  };
+}
+
+/**
+ * Resolve command text from platform command object
+ */
+export function resolveCommandText(
   command: { win32?: string; darwin?: string; linux?: string; default: string }
-): ShellCommand {
-  let shellCmd: string;
+): string | undefined {
+  let shellCmd: string | undefined;
 
   switch (PLATFORM) {
     case 'win32':
@@ -50,12 +103,52 @@ export function resolveShellCommand(
       shellCmd = command.default;
   }
 
-  // Parse shell and args
-  const parts = shellCmd.trim().split(/\s+/);
-  const shell = parts[0];
-  const args = parts.slice(1);
+  const trimmedCommand = shellCmd?.trim();
+  return trimmedCommand || undefined;
+}
 
-  return { shell, args };
+/**
+ * Resolve shell command from platform command object
+ */
+export function resolveShellCommand(
+  command: { win32?: string; darwin?: string; linux?: string; default: string }
+): ShellCommand {
+  let shellCmd: string | undefined;
+
+  switch (PLATFORM) {
+    case 'win32':
+      shellCmd = command.win32 || command.default;
+      break;
+    case 'darwin':
+      shellCmd = command.darwin || command.default;
+      break;
+    case 'linux':
+      shellCmd = command.linux || command.default;
+      break;
+    default:
+      shellCmd = command.default;
+  }
+
+  if (!shellCmd?.trim()) {
+    return getDefaultShell();
+  }
+
+  const defaultShell = getDefaultShell();
+  const trimmedCommand = shellCmd.trim();
+
+  if (PLATFORM === 'win32') {
+    const shellName = path.basename(defaultShell.shell).toLowerCase();
+    if (shellName === 'cmd.exe') {
+      return { shell: defaultShell.shell, args: ['/c', trimmedCommand] };
+    }
+
+    return {
+      shell: defaultShell.shell,
+      args: ['-NoLogo', '-NoProfile', '-Command', trimmedCommand],
+    };
+  }
+
+  return { shell: defaultShell.shell, args: ['-lc', trimmedCommand] };
 }
 
 /**

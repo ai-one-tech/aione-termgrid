@@ -54,7 +54,7 @@ const NewConfigModal: React.FC<NewConfigModalProps> = ({
               type="text"
               value={fileName}
               onChange={(e) => setFileName(e.target.value)}
-              placeholder="my-config.tg"
+              placeholder="my-config"
             />
           </div>
 

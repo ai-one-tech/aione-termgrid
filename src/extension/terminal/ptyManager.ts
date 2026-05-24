@@ -1,3 +1,4 @@
+import * as os from 'os';
 import * as pty from 'node-pty';
 import { TerminalCell } from '../../shared/schema';
 import { TerminalStatus } from '../../shared/types';
@@ -37,18 +38,21 @@ export class PtyManager {
    */
   async startCell(cell: TerminalCell): Promise<void> {
     if (this.processes.has(cell.id)) {
-      // Already running, stop first
       await this.stopCell(cell.id);
     }
 
     try {
       this.options.onStatusChange(cell.id, 'pending');
 
-      const shellCmd = resolveShellCommand(cell.command);
+      const shellCmd = resolveShellCommand(cell.command ?? { default: '' });
       const cwd = resolveCwd(cell.cwd, this.options.workspaceRoot);
+      const shell = shellCmd.shell.trim();
 
-      // Create PTY process
-      const ptyProcess = pty.spawn(shellCmd.shell, shellCmd.args, {
+      if (!shell) {
+        throw new Error(`Resolved empty shell for terminal ${cell.id}`);
+      }
+
+      const ptyOptions: pty.IPtyForkOptions | pty.IWindowsPtyForkOptions = {
         name: 'xterm-color',
         cwd,
         env: {
@@ -57,7 +61,10 @@ export class PtyManager {
         } as { [key: string]: string },
         cols: 80,
         rows: 24,
-      });
+        ...(os.platform() === 'win32' ? { useConpty: false } : {}),
+      };
+
+      const ptyProcess = pty.spawn(shell, shellCmd.args, ptyOptions);
 
       const processData: PtyProcess = {
         id: cell.id,
@@ -67,12 +74,10 @@ export class PtyManager {
         startTime: Date.now(),
       };
 
-      // Set up data handler
       ptyProcess.onData((data: string) => {
         this.options.onData(cell.id, data);
       });
 
-      // Set up exit handler
       ptyProcess.onExit(({ exitCode }: { exitCode: number }) => {
         this.processes.delete(cell.id);
         this.options.onStatusChange(cell.id, 'stopped');
@@ -126,7 +131,7 @@ export class PtyManager {
     for (const cell of cells) {
       this.executionQueue.add({
         id: cell.id,
-        order: cell.order,
+        order: 1,
         delay: cell.delay,
         execute: async () => {
           await this.startCell(cell);

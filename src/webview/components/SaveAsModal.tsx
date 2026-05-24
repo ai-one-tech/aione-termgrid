@@ -61,7 +61,7 @@ const SaveAsModal: React.FC<SaveAsModalProps> = ({
                 type="text"
                 value={fileName}
                 onChange={(e) => setFileName(e.target.value)}
-                placeholder="my-config.tg"
+                placeholder="my-config"
                 autoFocus
               />
             </div>

@@ -81,6 +81,11 @@ export interface ConfigSavedAsMessage {
   payload: { filePath: string };
 }
 
+export interface ConfigSavedMessage {
+  type: 'config:saved';
+  payload: { config: TermGridConfig };
+}
+
 export type ExtensionMessage =
   | ConfigLoadedMessage
   | ConfigUpdatedMessage
@@ -88,7 +93,8 @@ export type ExtensionMessage =
   | TerminalStatusMessage
   | TerminalExitedMessage
   | TreeRefreshMessage
-  | ConfigSavedAsMessage;
+  | ConfigSavedAsMessage
+  | ConfigSavedMessage;
 
 // WebView -> Host
 export interface ConfigSaveMessage {
@@ -188,32 +194,24 @@ export const DEFAULT_CONFIG: TermGridConfig = {
       id: 'cell-1',
       title: 'Terminal 1',
       cwd: '.',
-      command: { default: 'bash' },
-      order: 1,
       delay: 0,
     },
     {
       id: 'cell-2',
       title: 'Terminal 2',
       cwd: '.',
-      command: { default: 'bash' },
-      order: 2,
       delay: 0,
     },
     {
       id: 'cell-3',
       title: 'Terminal 3',
       cwd: '.',
-      command: { default: 'bash' },
-      order: 3,
       delay: 0,
     },
     {
       id: 'cell-4',
       title: 'Terminal 4',
       cwd: '.',
-      command: { default: 'bash' },
-      order: 4,
       delay: 0,
     },
   ],

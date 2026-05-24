@@ -14,9 +14,8 @@ export const TerminalCellSchema = z.object({
   title: z.string().min(1).max(50),
   borderColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
   cwd: z.string(),
-  command: PlatformCommandSchema,
+  command: PlatformCommandSchema.nullable().optional(),
   env: z.record(z.string()).optional(),
-  order: z.number().int().min(1).max(99).default(1),
   delay: z.number().int().min(0).max(300).default(0),
   colSpan: z.number().int().min(1).optional(),
   rowSpan: z.number().int().min(1).optional(),
@@ -26,6 +25,8 @@ export const TerminalCellSchema = z.object({
 export const GridLayoutSchema = z.object({
   rows: z.number().int().min(1).max(4),
   cols: z.number().int().min(1).max(4),
+  colWidths: z.array(z.number().min(0.1)).optional(),
+  rowHeights: z.array(z.number().min(0.1)).optional(),
 });
 
 // Merged cell definition

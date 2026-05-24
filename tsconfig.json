@@ -13,6 +13,7 @@
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
+    "inlineSources": true,        // 把源码内嵌进 .map 文件
     "outDir": "./out",
     "rootDir": ".",
     "baseUrl": ".",

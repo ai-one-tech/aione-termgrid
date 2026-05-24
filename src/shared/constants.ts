@@ -41,7 +41,6 @@ export const DEFAULTS = {
   SHELL: 'bash',
   CWD: '.',
   DELAY: 0,
-  ORDER: 1,
   BORDER_COLOR: '#22c55e',
 } as const;
 

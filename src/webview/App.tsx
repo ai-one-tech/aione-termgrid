@@ -19,9 +19,54 @@ interface AppProps {
   vscode: VSCodeApi;
 }
 
+const MAX_TERMINAL_BUFFER_LENGTH = 200_000;
+
+// Type for tracking modified fields
+type ModifiedField = {
+  path: string;
+  oldValue: unknown;
+  newValue: unknown;
+};
+
+// Compare two objects and return modified fields
+function getModifiedFields(
+  oldObj: Record<string, unknown>,
+  newObj: Record<string, unknown>,
+  prefix = ''
+): ModifiedField[] {
+  const modified: ModifiedField[] = [];
+  const allKeys = new Set([...Object.keys(oldObj || {}), ...Object.keys(newObj || {})]);
+
+  for (const key of allKeys) {
+    const path = prefix ? `${prefix}.${key}` : key;
+    const oldVal = oldObj?.[key];
+    const newVal = newObj?.[key];
+
+    if (typeof oldVal === 'object' && oldVal !== null &&
+        typeof newVal === 'object' && newVal !== null &&
+        !Array.isArray(oldVal) && !Array.isArray(newVal)) {
+      // Recurse into nested objects
+      modified.push(...getModifiedFields(
+        oldVal as Record<string, unknown>,
+        newVal as Record<string, unknown>,
+        path
+      ));
+    } else if (JSON.stringify(oldVal) !== JSON.stringify(newVal)) {
+      modified.push({
+        path,
+        oldValue: oldVal,
+        newValue: newVal,
+      });
+    }
+  }
+
+  return modified;
+}
+
 const App: React.FC<AppProps> = ({ vscode }) => {
   const [config, setConfig] = useState<TermGridConfig | null>(null);
   const [isDirty, setIsDirty] = useState(false);
+  const [modifiedFields, setModifiedFields] = useState<ModifiedField[]>([]);
   const [showSettings, setShowSettings] = useState(false);
   const [maximizedCell, setMaximizedCell] = useState<TerminalCell | null>(null);
   const [showNewConfig, setShowNewConfig] = useState(false);
@@ -29,7 +74,7 @@ const App: React.FC<AppProps> = ({ vscode }) => {
   const [theme, setTheme] = useState<Theme>(() => getEditorThemeKind());
   const [language, setLanguage] = useState<Language>('zh');
   const [terminalStatuses, setTerminalStatuses] = useState<Record<string, TerminalStatus>>({});
-  const [, setTerminalData] = useState<Record<string, string>>({});
+  const terminalData = useRef<Record<string, string>>({});
   const terminalRefs = useRef<Record<string, { write: (data: string) => void; clear: () => void }>>({});
 
   useEffect(() => {
@@ -58,18 +103,35 @@ const App: React.FC<AppProps> = ({ vscode }) => {
         case 'config:updated':
           setConfig(message.payload.config);
           setLanguage((message.payload.config.language as Language) || 'zh');
+          // When config is loaded/updated from file, reset dirty state
+          setIsDirty(false);
+          setModifiedFields([]);
           break;
-        case 'terminal:data':
-          setTerminalData((prev) => ({
-            ...prev,
-            [message.payload.cellId]: (prev[message.payload.cellId] || '') + message.payload.data,
-          }));
+        case 'config:saved':
+          // Config saved successfully, reset dirty state
+          setIsDirty(false);
+          setModifiedFields([]);
+          break;
+        case 'terminal:data': {
+          const nextData = (terminalData.current[message.payload.cellId] || '') + message.payload.data;
+          terminalData.current = {
+            ...terminalData.current,
+            [message.payload.cellId]: nextData.slice(-MAX_TERMINAL_BUFFER_LENGTH),
+          };
           // Write data to terminal if ref exists
           if (terminalRefs.current[message.payload.cellId]) {
             terminalRefs.current[message.payload.cellId].write(message.payload.data);
           }
           break;
+        }
         case 'terminal:status':
+          if (message.payload.status === 'pending') {
+            terminalData.current = {
+              ...terminalData.current,
+              [message.payload.cellId]: '',
+            };
+            terminalRefs.current[message.payload.cellId]?.clear();
+          }
           setTerminalStatuses((prev) => ({
             ...prev,
             [message.payload.cellId]: message.payload.status,
@@ -113,7 +175,7 @@ const App: React.FC<AppProps> = ({ vscode }) => {
       if (configToSave && configToSave !== config) {
         setConfig(configToSave);
       }
-      setIsDirty(false);
+      // Note: isDirty will be reset when we receive 'config:saved' message from extension
     }
   }, [config, sendMessage]);
 
@@ -125,6 +187,7 @@ const App: React.FC<AppProps> = ({ vscode }) => {
         payload: { name, config },
       });
       setIsDirty(false);
+      setModifiedFields([]);
     }
   }, [config, sendMessage]);
 
@@ -134,6 +197,12 @@ const App: React.FC<AppProps> = ({ vscode }) => {
       // Only mark as dirty if the config has actually changed
       if (prevConfig && JSON.stringify(prevConfig) !== JSON.stringify(newConfig)) {
         setIsDirty(true);
+        // Calculate and store modified fields for debugging
+        const changes = getModifiedFields(
+          prevConfig as Record<string, unknown>,
+          newConfig as Record<string, unknown>
+        );
+        setModifiedFields(changes);
       }
       return newConfig;
     });
@@ -203,6 +272,10 @@ const App: React.FC<AppProps> = ({ vscode }) => {
   const registerTerminalRef = useCallback((cellId: string, ref: { write: (data: string) => void; clear: () => void } | null) => {
     if (ref) {
       terminalRefs.current[cellId] = ref;
+      const existingData = terminalData.current[cellId];
+      if (existingData) {
+        ref.write(existingData);
+      }
     } else {
       delete terminalRefs.current[cellId];
     }
@@ -220,6 +293,7 @@ const App: React.FC<AppProps> = ({ vscode }) => {
     <div className={`app-container flex flex-col h-screen w-screen overflow-hidden ${theme}`}>
       <FloatingToolbar
         isDirty={isDirty}
+        modifiedFields={modifiedFields}
         onSave={handleSave}
         onSaveAs={() => setShowSaveAs(true)}
         onStopAll={handleStopAll}

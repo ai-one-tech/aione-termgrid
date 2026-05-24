@@ -52,6 +52,8 @@ export const TRANSLATIONS = {
     clickToConfigure: 'Click to Configure',
     clickToConfigureDescription: 'Click any cell to open its terminal configuration.',
     exitMergeMode: 'Exit Merge Mode',
+    enterCommand: 'Enter the command to execute',
+    commandRequired: 'Please enter at least one command',
   },
   zh: {
     appName: 'AiOne TermGrid',
@@ -105,6 +107,8 @@ export const TRANSLATIONS = {
     clickToConfigure: '点击配置',
     clickToConfigureDescription: '点击任意单元格打开终端配置。',
     exitMergeMode: '退出合并模式',
+    enterCommand: '请输入执行的脚本',
+    commandRequired: '请至少填写一个命令',
   },
 } as const;
 

@@ -68,8 +68,6 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
           id: `cell-${i + 1}`,
           title: `Terminal ${i + 1}`,
           cwd: '.',
-          command: { default: 'bash' },
-          order: i + 1,
           delay: 0,
         });
       }

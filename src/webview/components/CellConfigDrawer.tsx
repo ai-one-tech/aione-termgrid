@@ -30,6 +30,30 @@ const PLATFORM_KEYS: { key: PlatformKey; labelKey: TranslationKey }[] = [
   { key: 'linux', labelKey: 'linux' },
 ];
 
+// Extract cell index from id like "cell-3" -> 3
+const getCellIndex = (id: string): number => {
+  const match = id.match(/^(?:cell|merged)-(\d+)/);
+  return match ? parseInt(match[1], 10) : 0;
+};
+
+// Check icon component
+const CheckIcon: React.FC<{ className?: string }> = ({ className }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="14"
+    height="14"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="3"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+  >
+    <polyline points="20 6 9 17 4 12" />
+  </svg>
+);
+
 const CellConfigDrawer: React.FC<CellConfigDrawerProps> = ({
   cell,
   open,
@@ -38,7 +62,7 @@ const CellConfigDrawer: React.FC<CellConfigDrawerProps> = ({
   t,
 }) => {
   const [localCell, setLocalCell] = useState<TerminalCell | undefined>(cell);
-  const [activePlatform, setActivePlatform] = useState<PlatformKey>('default');
+  const [commandError, setCommandError] = useState(false);
   const isFirstRender = useRef(true);
 
   useEffect(() => {
@@ -47,32 +71,63 @@ const CellConfigDrawer: React.FC<CellConfigDrawerProps> = ({
       return;
     }
     setLocalCell(cell);
-    setActivePlatform('default');
+    setCommandError(false);
   }, [cell]);
 
   if (!localCell) return null;
+
+  const cellIndex = getCellIndex(localCell.id);
 
   const handleUpdate = (updates: Partial<TerminalCell>) => {
     setLocalCell((prev) => (prev ? { ...prev, ...updates } : prev));
   };
 
   const handleCommandChange = (platform: PlatformKey, value: string) => {
-    const newCommand = { ...localCell.command, [platform]: value };
-    handleUpdate({ command: newCommand });
+    const command = localCell.command
+      ? { ...localCell.command, default: localCell.command.default || '' }
+      : { default: '' };
+
+    if (value.trim() === '') {
+      if (platform === 'default') {
+        handleUpdate({ command: { ...command, default: '' } });
+        return;
+      }
+
+      const nextCommand = { ...command };
+      delete nextCommand[platform];
+      handleUpdate({ command: nextCommand });
+      return;
+    }
+
+    handleUpdate({ command: { ...command, [platform]: value } });
+  };
+
+  // Check if at least one command is filled
+  const hasValidCommand = (): boolean => {
+    if (!localCell.command) return false;
+    return Object.values(localCell.command).some(
+      (cmd) => cmd && cmd.trim() !== ''
+    );
   };
 
   const handleSave = () => {
-    if (localCell) {
-      const updates: Partial<TerminalCell> = {
-        title: localCell.title,
-        cwd: localCell.cwd,
-        command: localCell.command,
-        order: localCell.order,
-        delay: localCell.delay,
-        borderColor: localCell.borderColor,
-      };
-      onSave(localCell.id, updates);
+    if (!localCell) return;
+
+    // Validate at least one command is filled
+    if (!hasValidCommand()) {
+      setCommandError(true);
+      return;
     }
+
+    setCommandError(false);
+    const updates: Partial<TerminalCell> = {
+      title: localCell.title,
+      cwd: localCell.cwd,
+      command: localCell.command,
+      delay: localCell.delay,
+      borderColor: localCell.borderColor,
+    };
+    onSave(localCell.id, updates);
     onOpenChange(false);
   };
 
@@ -81,11 +136,8 @@ const CellConfigDrawer: React.FC<CellConfigDrawerProps> = ({
       <SheetContent className="w-full sm:max-w-md p-0 flex flex-col h-full">
         <SheetHeader className="p-6 pb-4 shrink-0 border-b border-[var(--vscode-panel-border,#3c3c3c)]">
           <SheetTitle className="text-lg font-semibold flex items-center gap-2">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-[var(--vscode-focusBorder,#007fd4)]">
-              <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.1a2 2 0 0 1-1-1.72v-.51a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
-              <circle cx="12" cy="12" r="3" />
-            </svg>
-            {localCell.title}
+            <span className="text-[var(--vscode-descriptionForeground,#858585)] font-mono text-sm">#{cellIndex}</span>
+            <span className="truncate">{localCell.title}</span>
           </SheetTitle>
         </SheetHeader>
 
@@ -110,54 +162,46 @@ const CellConfigDrawer: React.FC<CellConfigDrawerProps> = ({
             />
           </div>
 
-          {/* Command */}
-          <div className="space-y-2">
+          {/* Command - All platforms visible */}
+          <div className="space-y-3">
             <Label className="text-[var(--vscode-editor-foreground,#cccccc)]">{t('command')}</Label>
-            <div className="flex gap-1 flex-wrap">
-              {PLATFORM_KEYS.map((p) => (
-                <Button
-                  key={p.key}
-                  variant={activePlatform === p.key ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setActivePlatform(p.key)}
-                  className={activePlatform === p.key ? '' : 'border-[var(--vscode-panel-border,#3c3c3c)]'}
-                >
-                  {t(p.labelKey)}
-                </Button>
-              ))}
-            </div>
-            <Textarea
-              value={localCell.command[activePlatform] || localCell.command.default}
-              onChange={(e) => handleCommandChange(activePlatform, e.target.value)}
-              rows={3}
-              className="bg-[var(--vscode-input-background,#3c3c3c)] border-[var(--vscode-input-border,#3c3c3c)] text-[var(--vscode-editor-foreground,#cccccc)]"
-            />
+            {PLATFORM_KEYS.map((p) => {
+              const value = (localCell.command && localCell.command[p.key]) || '';
+              const isDefault = p.key === 'default';
+              const placeholder = t('enterCommand');
+
+              return (
+                <div key={p.key} className="space-y-1">
+                  <span className={`text-xs px-2 py-0.5 rounded ${
+                    isDefault
+                      ? 'bg-[var(--vscode-focusBorder,#007fd4)] text-white'
+                      : 'bg-[var(--vscode-panel-border,#3c3c3c)] text-[var(--vscode-descriptionForeground,#858585)]'
+                  }`}>
+                    {t(p.labelKey)}
+                  </span>
+                  <Textarea
+                    value={value}
+                    placeholder={placeholder}
+                    onChange={(e) => handleCommandChange(p.key, e.target.value)}
+                    rows={2}
+                    className="bg-[var(--vscode-input-background,#3c3c3c)] border-[var(--vscode-input-border,#3c3c3c)] text-[var(--vscode-editor-foreground,#cccccc)] mt-1"
+                  />
+                </div>
+              );
+            })}
           </div>
 
-          {/* Order and Delay */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label className="text-[var(--vscode-editor-foreground,#cccccc)]">{t('order')}</Label>
-              <Input
-                type="number"
-                min={1}
-                max={99}
-                value={localCell.order}
-                onChange={(e) => handleUpdate({ order: parseInt(e.target.value) || 1 })}
-                className="bg-[var(--vscode-input-background,#3c3c3c)] border-[var(--vscode-input-border,#3c3c3c)] text-[var(--vscode-editor-foreground,#cccccc)]"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label className="text-[var(--vscode-editor-foreground,#cccccc)]">{t('delay')}</Label>
-              <Input
-                type="number"
-                min={0}
-                max={300}
-                value={localCell.delay}
-                onChange={(e) => handleUpdate({ delay: parseInt(e.target.value) || 0 })}
-                className="bg-[var(--vscode-input-background,#3c3c3c)] border-[var(--vscode-input-border,#3c3c3c)] text-[var(--vscode-editor-foreground,#cccccc)]"
-              />
-            </div>
+          {/* Delay */}
+          <div className="space-y-2">
+            <Label className="text-[var(--vscode-editor-foreground,#cccccc)]">{t('delay')}</Label>
+            <Input
+              type="number"
+              min={0}
+              max={300}
+              value={localCell.delay}
+              onChange={(e) => handleUpdate({ delay: parseInt(e.target.value) || 0 })}
+              className="bg-[var(--vscode-input-background,#3c3c3c)] border-[var(--vscode-input-border,#3c3c3c)] text-[var(--vscode-editor-foreground,#cccccc)]"
+            />
           </div>
 
           {/* Border Color */}
@@ -165,45 +209,64 @@ const CellConfigDrawer: React.FC<CellConfigDrawerProps> = ({
             <Label className="text-[var(--vscode-editor-foreground,#cccccc)]">{t('borderColor')}</Label>
             <div className="flex gap-2 flex-wrap items-center">
               <button
-                className={`w-8 h-8 rounded-md border-2 transition-all flex items-center justify-center text-xs text-[var(--vscode-descriptionForeground,#858585)] ${
+                className={`w-8 h-8 rounded-md border-2 transition-all flex items-center justify-center ${
                   !localCell.borderColor
-                    ? 'border-[var(--vscode-focusBorder,#007fd4)] ring-2 ring-[var(--vscode-focusBorder,#007fd4)]'
+                    ? 'border-[var(--vscode-focusBorder,#007fd4)]'
                     : 'border-[var(--vscode-panel-border,#3c3c3c)]'
                 }`}
                 style={{ backgroundColor: 'var(--vscode-editor-background,#1e1e1e)' }}
                 onClick={() => handleUpdate({ borderColor: undefined })}
                 title="None"
               >
-                —
+                {!localCell.borderColor ? (
+                  <CheckIcon className="text-[var(--vscode-focusBorder,#007fd4)]" />
+                ) : (
+                  <span className="text-xs text-[var(--vscode-descriptionForeground,#858585)]">—</span>
+                )}
               </button>
-              {BORDER_COLORS.map((color) => (
-                <button
-                  key={color}
-                  className={`w-8 h-8 rounded-md border-2 transition-all ${
-                    localCell.borderColor === color
-                      ? 'border-[var(--vscode-focusBorder,#007fd4)] ring-2 ring-[var(--vscode-focusBorder,#007fd4)]'
-                      : 'border-transparent'
-                  }`}
-                  style={{ backgroundColor: color }}
-                  onClick={() => handleUpdate({ borderColor: color })}
-                />
-              ))}
+              {BORDER_COLORS.map((color) => {
+                const isSelected = localCell.borderColor === color;
+                return (
+                  <button
+                    key={color}
+                    className={`w-8 h-8 rounded-md border-2 transition-all flex items-center justify-center ${
+                      isSelected
+                        ? 'border-transparent'
+                        : 'border-transparent hover:border-[var(--vscode-panel-border,#3c3c3c)]'
+                    }`}
+                    style={{ backgroundColor: color }}
+                    onClick={() => handleUpdate({ borderColor: color })}
+                  >
+                    {isSelected && <CheckIcon className="text-white" />}
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>
 
         {/* Footer */}
-        <div className="p-6 pt-4 shrink-0 border-t border-[var(--vscode-panel-border,#3c3c3c)] flex justify-end gap-2">
-          <Button
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            className="border-[var(--vscode-panel-border,#3c3c3c)]"
-          >
-            {t('cancel')}
-          </Button>
-          <Button onClick={handleSave}>
-            {t('save')}
-          </Button>
+        <div className="p-6 pt-4 shrink-0 border-t border-[var(--vscode-panel-border,#3c3c3c)]">
+          {commandError && (
+            <div className="mb-3 text-sm text-red-400">
+              {t('commandRequired')}
+            </div>
+          )}
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setCommandError(false);
+                onOpenChange(false);
+              }}
+              className="border-[var(--vscode-panel-border,#3c3c3c)]"
+            >
+              {t('cancel')}
+            </Button>
+            <Button onClick={handleSave}>
+              {t('save')}
+            </Button>
+          </div>
         </div>
       </SheetContent>
     </Sheet>

@@ -1,12 +1,8 @@
-import React, { useCallback, useRef, useState, useEffect } from 'react';
-import GridLayout from 'react-grid-layout';
+import React, { useCallback, useRef, useMemo, useState, useEffect } from 'react';
 import { TermGridConfig, TerminalCell } from '../../shared/schema';
-import { Theme, GridLayoutItem, TerminalStatus } from '../../shared/types';
+import { Theme, TerminalStatus } from '../../shared/types';
 import { TranslationKey } from '../../shared/translations';
 import TerminalCellComponent from './TerminalCell';
-import GridResizer from './GridResizer';
-import 'react-grid-layout/css/styles.css';
-import 'react-resizable/css/styles.css';
 
 interface TerminalGridProps {
   config: TermGridConfig;
@@ -20,6 +16,116 @@ interface TerminalGridProps {
   t: (key: TranslationKey) => string;
 }
 
+/**
+ * Build a 2D grid mapping each logical position [row][col] to a cell ID.
+ * Respects merged cells and custom colSpan/rowSpan.
+ */
+function buildCellGrid(config: TermGridConfig): (string | null)[][] {
+  const { layout, cells, mergedCells } = config;
+  const grid: (string | null)[][] = Array.from({ length: layout.rows }, () =>
+    Array.from({ length: layout.cols }, () => null)
+  );
+
+  let cellIndex = 0;
+
+  // Place merged cells first
+  if (mergedCells && mergedCells.length > 0) {
+    mergedCells.forEach((merged) => {
+      if (cellIndex >= cells.length) return;
+      const cell = cells[cellIndex];
+      for (let r = merged.startRow; r <= merged.endRow && r < layout.rows; r++) {
+        for (let c = merged.startCol; c <= merged.endCol && c < layout.cols; c++) {
+          grid[r][c] = cell.id;
+        }
+      }
+      cellIndex++;
+    });
+  }
+
+  // Place remaining cells
+  for (let row = 0; row < layout.rows && cellIndex < cells.length; row++) {
+    for (let col = 0; col < layout.cols && cellIndex < cells.length; col++) {
+      if (grid[row][col] !== null) continue;
+      const cell = cells[cellIndex];
+      const colSpan = Math.min(cell.colSpan || 1, layout.cols - col);
+      const rowSpan = Math.min(cell.rowSpan || 1, layout.rows - row);
+
+      for (let r = row; r < row + rowSpan && r < layout.rows; r++) {
+        for (let c = col; c < col + colSpan && c < layout.cols; c++) {
+          grid[r][c] = cell.id;
+        }
+      }
+      cellIndex++;
+    }
+  }
+
+  return grid;
+}
+
+/**
+ * Extract unique cell IDs per row, preserving left-to-right order.
+ */
+function getRowCellIds(grid: (string | null)[][]): string[][] {
+  return grid.map((row) => {
+    const seen = new Set<string>();
+    const ids: string[] = [];
+    for (const id of row) {
+      if (id && !seen.has(id)) {
+        seen.add(id);
+        ids.push(id);
+      }
+    }
+    return ids;
+  });
+}
+
+/**
+ * Extract unique cell IDs per column, preserving top-to-bottom order.
+ */
+function getColumnCellIds(grid: (string | null)[][]): string[][] {
+  if (grid.length === 0) return [];
+  const cols = grid[0].length;
+  const result: string[][] = [];
+  for (let c = 0; c < cols; c++) {
+    const seen = new Set<string>();
+    const ids: string[] = [];
+    for (let r = 0; r < grid.length; r++) {
+      const id = grid[r][c];
+      if (id && !seen.has(id)) {
+        seen.add(id);
+        ids.push(id);
+      }
+    }
+    result.push(ids);
+  }
+  return result;
+}
+
+/**
+ * Calculate default sizes (percentages) based on colSpan/rowSpan.
+ */
+function getDefaultSizes(
+  cellIds: string[],
+  dimension: 'col' | 'row',
+  config: TermGridConfig
+): number[] {
+  const { cells } = config;
+  const spanKey = dimension === 'col' ? 'colSpan' : 'rowSpan';
+
+  const spans = cellIds.map((id) => {
+    const cell = cells.find((c) => c.id === id);
+    return cell?.[spanKey] || 1;
+  });
+
+  const totalSpan = spans.reduce((a, b) => a + b, 0);
+  return spans.map((span) => (span / totalSpan) * 100);
+}
+
+// Convert sizes array to CSS grid template
+function sizesToTemplate(sizes: number[]): string {
+  return sizes.map((s) => `${s}fr`).join(' ');
+}
+
 const TerminalGrid: React.FC<TerminalGridProps> = ({
   config,
   theme,
@@ -31,254 +137,144 @@ const TerminalGrid: React.FC<TerminalGridProps> = ({
   registerTerminalRef,
   t,
 }) => {
-  const { layout, cells, mergedCells } = config;
+  const { layout, cells } = config;
   const containerRef = useRef<HTMLDivElement>(null);
-  const [gridWidth, setGridWidth] = useState(1200);
-  const [containerHeight, setContainerHeight] = useState(400);
 
-  const margin = 6;
-  const containerPadding = 6;
+  // Build the cell grid mapping
+  const cellGrid = useMemo(() => buildCellGrid(config), [config]);
+  const rowCellIds = useMemo(() => getRowCellIds(cellGrid), [cellGrid]);
+  const columnCellIds = useMemo(() => getColumnCellIds(cellGrid), [cellGrid]);
 
-  // Calculate rowHeight so that total grid height fits within container
-  const calculateRowHeight = useCallback((height: number, rows: number) => {
-    const totalGridRows = rows * 3;
-    // Total height = containerPadding*2 + (totalGridRows-1)*margin + totalGridRows*rowHeight
-    // Solve for rowHeight:
-    const availableHeight = height - containerPadding * 2 - (totalGridRows - 1) * margin;
-    return Math.max(20, Math.floor(availableHeight / totalGridRows));
-  }, []);
-
-  const [rowHeight, setRowHeight] = useState(() =>
-    calculateRowHeight(400, layout.rows)
+  // Column and row sizes (percentages)
+  const [colSizes, setColSizes] = useState<number[]>(() =>
+    getDefaultSizes(columnCellIds.map((ids) => ids[0]).filter(Boolean) as string[], 'col', config)
+  );
+  const [rowSizes, setRowSizes] = useState<number[]>(() =>
+    getDefaultSizes(rowCellIds.map((ids) => ids[0]).filter(Boolean) as string[], 'row', config)
   );
 
-  // Resize observer to handle container size changes
+  // Sync sizes when config changes
   useEffect(() => {
-    if (!containerRef.current) return;
+    setColSizes(getDefaultSizes(columnCellIds.map((ids) => ids[0]).filter(Boolean) as string[], 'col', config));
+    setRowSizes(getDefaultSizes(rowCellIds.map((ids) => ids[0]).filter(Boolean) as string[], 'row', config));
+  }, [config, columnCellIds, rowCellIds]);
 
-    const observer = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        const { width, height } = entry.contentRect;
-        setGridWidth(width);
-        setContainerHeight(height);
-        setRowHeight(calculateRowHeight(height, layout.rows));
+  // Drag state for column resize
+  const [colDrag, setColDrag] = useState<{ index: number; startX: number; startSizes: number[] } | null>(null);
+  // Drag state for row resize
+  const [rowDrag, setRowDrag] = useState<{ index: number; startY: number; startSizes: number[] } | null>(null);
+
+  // Handle column resize start
+  const handleColResizeStart = useCallback((index: number, e: React.MouseEvent) => {
+    e.preventDefault();
+    setColDrag({ index, startX: e.clientX, startSizes: [...colSizes] });
+  }, [colSizes]);
+
+  // Handle row resize start
+  const handleRowResizeStart = useCallback((index: number, e: React.MouseEvent) => {
+    e.preventDefault();
+    setRowDrag({ index, startY: e.clientY, startSizes: [...rowSizes] });
+  }, [rowSizes]);
+
+  // Global mouse move handler
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (colDrag) {
+        const containerWidth = containerRef.current?.clientWidth || 1;
+        const deltaPx = e.clientX - colDrag.startX;
+        const deltaPercent = (deltaPx / containerWidth) * 100;
+
+        const newSizes = [...colDrag.startSizes];
+        const leftSize = newSizes[colDrag.index] + deltaPercent;
+        const rightSize = newSizes[colDrag.index + 1] - deltaPercent;
+
+        if (leftSize > 5 && rightSize > 5) {
+          newSizes[colDrag.index] = leftSize;
+          newSizes[colDrag.index + 1] = rightSize;
+          setColSizes(newSizes);
+        }
       }
-    });
 
-    observer.observe(containerRef.current);
+      if (rowDrag) {
+        const containerHeight = containerRef.current?.clientHeight || 1;
+        const deltaPx = e.clientY - rowDrag.startY;
+        const deltaPercent = (deltaPx / containerHeight) * 100;
 
-    return () => observer.disconnect();
-  }, [layout.rows, calculateRowHeight]);
+        const newSizes = [...rowDrag.startSizes];
+        const topSize = newSizes[rowDrag.index] + deltaPercent;
+        const bottomSize = newSizes[rowDrag.index + 1] - deltaPercent;
 
-  // Generate layout items with merged cell support
-  const generateLayout = (): GridLayoutItem[] => {
-    const items: GridLayoutItem[] = [];
-    const usedPositions = new Set<string>();
-    let cellIndex = 0;
+        if (topSize > 5 && bottomSize > 5) {
+          newSizes[rowDrag.index] = topSize;
+          newSizes[rowDrag.index + 1] = bottomSize;
+          setRowSizes(newSizes);
+        }
+      }
+    };
 
-    // First pass: process merged cells
-    if (mergedCells && mergedCells.length > 0) {
-      mergedCells.forEach((merged) => {
-        if (cellIndex >= cells.length) return;
-
-        // Check if this merged area has already been processed
-        const mergedKey = `${merged.startRow}-${merged.startCol}`;
-        if (usedPositions.has(mergedKey)) return;
-
-        const cell = cells[cellIndex];
-        const mergedW = (merged.endCol - merged.startCol + 1) * 3;
-        const mergedH = (merged.endRow - merged.startRow + 1) * 3;
-        
-        items.push({
-          i: cell.id,
-          x: merged.startCol * 3,
-          y: merged.startRow * 3,
-          w: mergedW,
-          h: mergedH,
-          minW: 1,
-          minH: 1,
+    const handleMouseUp = () => {
+      if (colDrag) {
+        // Update colSpan based on new sizes
+        const totalCols = layout.cols;
+        const updatedCells = cells.map((cell) => {
+          for (let c = 0; c < columnCellIds.length; c++) {
+            const idx = columnCellIds[c].indexOf(cell.id);
+            if (idx !== -1) {
+              const size = colSizes[c] || 0;
+              const newSpan = Math.max(1, Math.round((size / 100) * totalCols));
+              return { ...cell, colSpan: newSpan };
+            }
+          }
+          return cell;
         });
+        onConfigUpdate({ ...config, cells: updatedCells });
+        setColDrag(null);
+      }
 
-        // Mark all positions in this merged area as used
-        for (let r = merged.startRow; r <= merged.endRow; r++) {
-          for (let c = merged.startCol; c <= merged.endCol; c++) {
-            usedPositions.add(`${r}-${c}`);
+      if (rowDrag) {
+        // Update rowSpan based on new sizes
+        const totalRows = layout.rows;
+        const updatedCells = cells.map((cell) => {
+          for (let r = 0; r < rowCellIds.length; r++) {
+            const idx = rowCellIds[r].indexOf(cell.id);
+            if (idx !== -1) {
+              const size = rowSizes[r] || 0;
+              const newSpan = Math.max(1, Math.round((size / 100) * totalRows));
+              return { ...cell, rowSpan: newSpan };
+            }
           }
-        }
-
-        cellIndex++;
-      });
-    }
-
-    // Second pass: process remaining cells that are not in any merged area
-    for (let row = 0; row < layout.rows && cellIndex < cells.length; row++) {
-      for (let col = 0; col < layout.cols && cellIndex < cells.length; col++) {
-        const posKey = `${row}-${col}`;
-        if (usedPositions.has(posKey)) continue;
-
-        const cell = cells[cellIndex];
-        const colSpan = cell.colSpan || 1;
-        const rowSpan = cell.rowSpan || 1;
-
-        items.push({
-          i: cell.id,
-          x: col * 3,
-          y: row * 3,
-          w: colSpan * 3,
-          h: rowSpan * 3,
-          minW: 1,
-          minH: 1,
+          return cell;
         });
-
-        usedPositions.add(posKey);
-        cellIndex++;
+        onConfigUpdate({ ...config, cells: updatedCells });
+        setRowDrag(null);
       }
+    };
+
+    if (colDrag || rowDrag) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+      return () => {
+        window.removeEventListener('mousemove', handleMouseMove);
+        window.removeEventListener('mouseup', handleMouseUp);
+      };
     }
-
-    return items;
-  };
-
-  // Get visible cells (skip cells that are part of merged areas but not the starting cell)
-  const getVisibleCells = (): TerminalCell[] => {
-    if (!mergedCells || mergedCells.length === 0) return cells;
-
-    const visibleCells: TerminalCell[] = [];
-    const usedPositions = new Set<string>();
-    let cellIndex = 0;
-
-    // First, include cells that are start of merged areas
-    mergedCells.forEach((merged) => {
-      if (cellIndex >= cells.length) return;
-      
-      const mergedKey = `${merged.startRow}-${merged.startCol}`;
-      if (!usedPositions.has(mergedKey)) {
-        visibleCells.push(cells[cellIndex]);
-        usedPositions.add(mergedKey);
-        
-        // Mark all positions in this merged area
-        for (let r = merged.startRow; r <= merged.endRow; r++) {
-          for (let c = merged.startCol; c <= merged.endCol; c++) {
-            usedPositions.add(`${r}-${c}`);
-          }
-        }
-        
-        cellIndex++;
-      }
-    });
-
-    // Then add remaining cells not in any merged area
-    for (let row = 0; row < layout.rows && cellIndex < cells.length; row++) {
-      for (let col = 0; col < layout.cols && cellIndex < cells.length; col++) {
-        const posKey = `${row}-${col}`;
-        if (!usedPositions.has(posKey)) {
-          visibleCells.push(cells[cellIndex]);
-          usedPositions.add(posKey);
-          cellIndex++;
-        }
-      }
-    }
-
-    return visibleCells;
-  };
-
-  const gridLayout = generateLayout();
-  const visibleCells = getVisibleCells();
-
-  // Handle layout change from react-grid-layout (disabled for now but kept for future use)
-  const handleLayoutChange = useCallback(
-    (newLayout: GridLayoutItem[]) => {
-      // Calculate new colSpan/rowSpan based on layout changes
-      const updatedCells = cells.map((cell) => {
-        const layoutItem = newLayout.find((item) => item.i === cell.id);
-        if (layoutItem) {
-          return {
-            ...cell,
-            colSpan: Math.max(1, Math.round(layoutItem.w / 3)),
-            rowSpan: Math.max(1, Math.round(layoutItem.h / 3)),
-          };
-        }
-        return cell;
-      });
-
-      // Update merged cells based on layout changes
-      const updatedMergedCells =
-        mergedCells?.map((m) => {
-          // Find if any cell in this merged area has changed position
-          const cellsInMerge = newLayout.filter((item) => {
-            const cell = cells.find((c) => c.id === item.i);
-            if (!cell) return false;
-            const col = Math.floor(item.x / 3);
-            const row = Math.floor(item.y / 3);
-            return col >= m.startCol && col <= m.endCol && row >= m.startRow && row <= m.endRow;
-          });
-
-          if (cellsInMerge.length > 0) {
-            // Recalculate merged bounds based on actual layout
-            const minX = Math.min(...cellsInMerge.map((item) => item.x));
-            const minY = Math.min(...cellsInMerge.map((item) => item.y));
-            const maxX = Math.max(...cellsInMerge.map((item) => item.x + item.w));
-            const maxY = Math.max(...cellsInMerge.map((item) => item.y + item.h));
-
-            return {
-              ...m,
-              startCol: Math.floor(minX / 3),
-              startRow: Math.floor(minY / 3),
-              endCol: Math.floor((maxX - 3) / 3),
-              endRow: Math.floor((maxY - 3) / 3),
-            };
-          }
-          return m;
-        }) || [];
-
-      // Filter out merged cells that are out of bounds
-      const validMergedCells = updatedMergedCells.filter(
-        (m) =>
-          m.startRow < layout.rows &&
-          m.endRow < layout.rows &&
-          m.startCol < layout.cols &&
-          m.endCol < layout.cols &&
-          m.startRow >= 0 &&
-          m.endRow >= 0 &&
-          m.startCol >= 0 &&
-          m.endCol >= 0
-      );
-
-      onConfigUpdate({
-        ...config,
-        cells: updatedCells,
-        mergedCells: validMergedCells,
-      });
-    },
-    [cells, config, layout.cols, layout.rows, mergedCells, onConfigUpdate]
-  );
+  }, [colDrag, rowDrag, colSizes, rowSizes, cells, config, layout.cols, layout.rows, columnCellIds, rowCellIds, onConfigUpdate]);
 
   // Handle cell stop
-  const handleCellStop = useCallback(
-    (cellId: string) => {
-      const vscode = (window as unknown as { vscode?: { postMessage: (msg: unknown) => void } }).vscode;
-      if (vscode) {
-        vscode.postMessage({
-          type: 'terminal:stop',
-          payload: { cellId },
-        });
-      }
-    },
-    []
-  );
+  const handleCellStop = useCallback((cellId: string) => {
+    const vscode = (window as unknown as { vscode?: { postMessage: (msg: unknown) => void } }).vscode;
+    if (vscode) {
+      vscode.postMessage({ type: 'terminal:stop', payload: { cellId } });
+    }
+  }, []);
 
   // Handle cell restart
-  const handleCellRestart = useCallback(
-    (cellId: string) => {
-      const vscode = (window as unknown as { vscode?: { postMessage: (msg: unknown) => void } }).vscode;
-      if (vscode) {
-        vscode.postMessage({
-          type: 'terminal:restart',
-          payload: { cellId },
-        });
-      }
-    },
-    []
-  );
+  const handleCellRestart = useCallback((cellId: string) => {
+    const vscode = (window as unknown as { vscode?: { postMessage: (msg: unknown) => void } }).vscode;
+    if (vscode) {
+      vscode.postMessage({ type: 'terminal:restart', payload: { cellId } });
+    }
+  }, []);
 
   // Handle cell input
   const handleCellInput = useCallback(
@@ -296,48 +292,147 @@ const TerminalGrid: React.FC<TerminalGridProps> = ({
     [onResize]
   );
 
+  // Render a single cell
+  const renderCell = (cellId: string) => {
+    const cell = cells.find((c) => c.id === cellId);
+    if (!cell) return null;
+
+    return (
+      <TerminalCellComponent
+        cell={cell}
+        theme={theme}
+        status={terminalStatuses[cell.id] || 'stopped'}
+        onStop={() => handleCellStop(cell.id)}
+        onRestart={() => handleCellRestart(cell.id)}
+        onMaximize={() => onMaximize(cell)}
+        onInput={(data) => handleCellInput(cell.id, data)}
+        onResize={(cols, rows) => handleCellResize(cell.id, cols, rows)}
+        registerTerminalRef={registerTerminalRef}
+        t={t}
+      />
+    );
+  };
+
+  // Build grid template
+  const gridTemplateColumns = sizesToTemplate(colSizes);
+  const gridTemplateRows = sizesToTemplate(rowSizes);
+
+  // Determine cell positions for grid-area
+  const cellPositions = useMemo(() => {
+    const positions: Record<string, { rowStart: number; rowEnd: number; colStart: number; colEnd: number }> = {};
+
+    for (let r = 0; r < cellGrid.length; r++) {
+      for (let c = 0; c < cellGrid[r].length; c++) {
+        const cellId = cellGrid[r][c];
+        if (!cellId) continue;
+
+        if (!positions[cellId]) {
+          positions[cellId] = { rowStart: r + 1, rowEnd: r + 2, colStart: c + 1, colEnd: c + 2 };
+        } else {
+          positions[cellId].rowStart = Math.min(positions[cellId].rowStart, r + 1);
+          positions[cellId].rowEnd = Math.max(positions[cellId].rowEnd, r + 2);
+          positions[cellId].colStart = Math.min(positions[cellId].colStart, c + 1);
+          positions[cellId].colEnd = Math.max(positions[cellId].colEnd, c + 2);
+        }
+      }
+    }
+
+    return positions;
+  }, [cellGrid]);
+
+  // Unique cell IDs in render order
+  const uniqueCellIds = useMemo(() => {
+    const seen = new Set<string>();
+    const ids: string[] = [];
+    for (const row of cellGrid) {
+      for (const id of row) {
+        if (id && !seen.has(id)) {
+          seen.add(id);
+          ids.push(id);
+        }
+      }
+    }
+    return ids;
+  }, [cellGrid]);
+
   return (
-    <div 
+    <div
       ref={containerRef}
       className={`terminal-grid-container ${theme} w-full h-full flex-1`}
-      style={{ width: '100%', height: '100%' }}
+      style={{
+        width: '100%',
+        height: '100%',
+        display: 'grid',
+        gridTemplateColumns,
+        gridTemplateRows,
+        gap: '5px',
+        padding: '4px',
+        position: 'relative',
+      }}
     >
-      <GridLayout
-        className="terminal-grid"
-        layout={gridLayout}
-        cols={layout.cols * 3}
-        rowHeight={rowHeight}
-        width={gridWidth}
-        onLayoutChange={handleLayoutChange}
-        isDraggable={false}
-        isResizable={false}
-        margin={[6, 6]}
-        containerPadding={[6, 6]}
-      >
-        {visibleCells.map((cell) => (
-          <div key={cell.id} className="grid-cell">
-            <TerminalCellComponent
-              cell={cell}
-              theme={theme}
-              status={terminalStatuses[cell.id] || 'stopped'}
-              onStop={() => handleCellStop(cell.id)}
-              onRestart={() => handleCellRestart(cell.id)}
-              onMaximize={() => onMaximize(cell)}
-              onInput={(data) => handleCellInput(cell.id, data)}
-              onResize={(cols, rows) => handleCellResize(cell.id, cols, rows)}
-              registerTerminalRef={registerTerminalRef}
-              t={t}
-            />
+      {uniqueCellIds.map((cellId) => {
+        const pos = cellPositions[cellId];
+        if (!pos) return null;
+        return (
+          <div
+            key={cellId}
+            className="grid-cell"
+            style={{
+              gridArea: `${pos.rowStart} / ${pos.colStart} / ${pos.rowEnd} / ${pos.colEnd}`,
+              overflow: 'hidden',
+            }}
+          >
+            {renderCell(cellId)}
           </div>
-        ))}
-      </GridLayout>
-      
-      <GridResizer
-        rows={layout.rows}
-        cols={layout.cols}
-        containerWidth={gridWidth}
-        containerHeight={containerHeight}
-      />
+        );
+      })}
+
+      {/* Column resize handles */}
+      {colSizes.length > 1 && colSizes.map((_, index) => {
+        if (index >= colSizes.length - 1) return null;
+        // Calculate position: sum of previous column sizes
+        const leftPercent = colSizes.slice(0, index + 1).reduce((a, b) => a + b, 0);
+        return (
+          <div
+            key={`col-resizer-${index}`}
+            className="grid-resizer-col"
+            style={{
+              position: 'absolute',
+              left: `${leftPercent}%`,
+              top: 0,
+              bottom: 0,
+              width: '4px',
+              transform: 'translateX(-50%)',
+              cursor: 'col-resize',
+              zIndex: 10,
+            }}
+            onMouseDown={(e) => handleColResizeStart(index, e)}
+          />
+        );
+      })}
+
+      {/* Row resize handles */}
+      {rowSizes.length > 1 && rowSizes.map((_, index) => {
+        if (index >= rowSizes.length - 1) return null;
+        const topPercent = rowSizes.slice(0, index + 1).reduce((a, b) => a + b, 0);
+        return (
+          <div
+            key={`row-resizer-${index}`}
+            className="grid-resizer-row"
+            style={{
+              position: 'absolute',
+              top: `${topPercent}%`,
+              left: 0,
+              right: 0,
+              height: '4px',
+              transform: 'translateY(-50%)',
+              cursor: 'row-resize',
+              zIndex: 10,
+            }}
+            onMouseDown={(e) => handleRowResizeStart(index, e)}
+          />
+        );
+      })}
     </div>
   );
 };

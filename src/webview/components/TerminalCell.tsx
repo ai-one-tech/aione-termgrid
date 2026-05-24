@@ -38,7 +38,17 @@ const TerminalCellComponent: React.FC<TerminalCellProps> = ({
   const terminalRef = useRef<HTMLDivElement>(null);
   const terminalInstance = useRef<Terminal | null>(null);
   const fitAddon = useRef<ReturnType<typeof loadXtermAddons>['fit'] | null>(null);
+  const onInputRef = useRef(onInput);
+  const onResizeRef = useRef(onResize);
   // Use external status directly to avoid setState in effect
+
+  useEffect(() => {
+    onInputRef.current = onInput;
+  }, [onInput]);
+
+  useEffect(() => {
+    onResizeRef.current = onResize;
+  }, [onResize]);
 
   // Initialize terminal
   useEffect(() => {
@@ -61,12 +71,12 @@ const TerminalCellComponent: React.FC<TerminalCellProps> = ({
     requestAnimationFrame(() => {
       fit.fit();
       const { cols, rows } = terminal;
-      onResize(cols, rows);
+      onResizeRef.current(cols, rows);
     });
 
     // Handle input
     terminal.onData((data) => {
-      onInput(data);
+      onInputRef.current(data);
     });
 
     terminalInstance.current = terminal;
@@ -82,7 +92,7 @@ const TerminalCellComponent: React.FC<TerminalCellProps> = ({
       registerTerminalRef(cell.id, null);
       terminal.dispose();
     };
-  }, [theme, onInput, onResize, cell.id, registerTerminalRef]);
+  }, [theme, cell.id, registerTerminalRef]);
 
   // Handle resize
   useEffect(() => {
@@ -137,55 +147,67 @@ const TerminalCellComponent: React.FC<TerminalCellProps> = ({
 
   return (
     <div data-testid="TerminalCell" className="h-full">
-      <Card className="h-full flex flex-col" style={cell.borderColor ? { borderColor: cell.borderColor } : undefined}>
-      <CardHeader className="px-3 py-1 flex flex-row items-center justify-between border-b">
-        <CardTitle className="text-sm font-medium flex items-center gap-2">
-          <span
-            className={`w-3 h-3 rounded-full flex-shrink-0 transition-all duration-300 ${
-              status === 'running' ? 'animate-pulse' : ''
-            }`}
-            style={{ backgroundColor: getStatusColor() }}
-            title={getStatusText()}
-          />
-          <span className="truncate">{cell.title}</span>
-          <span className="text-xs text-muted-foreground ml-1">
-            {getStatusText()}
-          </span>
-        </CardTitle>
-        <div className="flex items-center gap-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7"
-            onClick={onRestart}
-            title={t('restart')}
-          >
-            <RefreshIcon size={14} className="text-green-500" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7"
-            onClick={onStop}
-            title={t('stop')}
-            disabled={status === 'stopped'}
-          >
-            <StopIcon size={14} className="text-red-500" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7"
-            onClick={onMaximize}
-            title={t('zoom')}
-          >
-            <MaximizeIcon size={14} />
-          </Button>
-        </div>
-      </CardHeader>
-      <CardContent className="flex-1 p-0 overflow-hidden">
-        <div ref={terminalRef} className="w-full h-full" />
-      </CardContent>
+      <Card
+        className="h-full flex flex-col"
+        style={
+          cell.borderColor
+            ? {
+                borderColor: cell.borderColor + '80',
+                '--cell-border-color': cell.borderColor,
+              } as React.CSSProperties
+            : undefined
+        }
+      >
+        <CardHeader className="px-3 py-1 flex flex-row items-center justify-between border-b">
+          <CardTitle className="text-sm font-medium flex items-center gap-2">
+            <span
+              className={`w-3 h-3 rounded-full flex-shrink-0 transition-all duration-300 ${status === 'running' ? 'animate-pulse' : ''
+                }`}
+              style={{ backgroundColor: getStatusColor() }}
+              title={getStatusText()}
+            />
+            <span className="truncate">{cell.title}</span>
+            <span className="text-xs text-muted-foreground ml-1">
+              {getStatusText()}
+            </span>
+          </CardTitle>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={onRestart}
+              title={t('restart')}
+            >
+              <RefreshIcon size={14} className="text-green-500" />
+            </Button>
+            {
+              status !== 'stopped' && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7"
+                  onClick={onStop}
+                  title={t('stop')}
+                >
+                  <StopIcon size={14} className="text-red-500" />
+                </Button>
+              )
+            }
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={onMaximize}
+              title={t('zoom')}
+            >
+              <MaximizeIcon size={14} />
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="flex-1 p-0 overflow-hidden">
+          <div ref={terminalRef} className="w-full h-full" />
+        </CardContent>
       </Card>
     </div>
   );

@@ -26,10 +26,7 @@ export class TermGridEditorProvider implements vscode.CustomTextEditorProvider {
       if (disposed) {
         return;
       }
-      webviewPanel.webview.postMessage(message).then(
-        () => {},
-        () => {}
-      );
+      void webviewPanel.webview.postMessage(message).then(undefined, () => {});
     };
 
     // Initialize PTY manager for this editor instance
@@ -89,7 +86,7 @@ export class TermGridEditorProvider implements vscode.CustomTextEditorProvider {
     const onMessageDisposable = webviewPanel.webview.onDidReceiveMessage(async (message) => {
       switch (message.type) {
         case 'config:save':
-          await this.handleSaveConfig(document, message.payload.config);
+          await this.handleSaveConfig(document, message.payload.config, postMessage);
           break;
         case 'config:saveAs':
           await this.handleSaveAsConfig(webviewPanel, message.payload.name, message.payload.config);
@@ -303,12 +300,16 @@ export class TermGridEditorProvider implements vscode.CustomTextEditorProvider {
 
   private async handleSaveConfig(
     document: vscode.TextDocument,
-    config: TermGridConfig
+    config: TermGridConfig,
+    postMessage: (message: unknown) => void
   ): Promise<void> {
     const success = await this.configManager.writeConfig(document.uri.fsPath, config);
     if (success) {
-      // Notify webview
-      // webviewPanel.webview.postMessage({ type: 'config:saved' });
+      // Notify webview that config has been saved
+      postMessage({
+        type: 'config:saved',
+        payload: { config },
+      });
     }
   }
 
