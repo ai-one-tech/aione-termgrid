@@ -9,6 +9,8 @@ interface SharedEditorState {
   ptyManager: PtyManager;
   config: TermGridConfig | undefined;
   panels: Set<vscode.WebviewPanel>;
+  isReopening?: boolean;
+  showCloseWarning?: boolean;
 }
 
 // Registry to look up shared state by document file path
@@ -143,19 +145,59 @@ export class TermGridEditorProvider implements vscode.CustomTextEditorProvider {
           if (state.config) {
             postMessage({
               type: 'config:loaded',
-              payload: { config: state.config },
+              payload: { 
+                config: state.config,
+                showCloseWarning: state.showCloseWarning 
+              },
             });
+            
+            // Reset warning after sending
+            state.showCloseWarning = false;
+
+            // Send current terminal statuses and data
+            for (const cell of state.config.cells) {
+              const status = state.ptyManager.getStatus(cell.id);
+              if (status !== 'stopped') {
+                postMessage({
+                  type: 'terminal:status',
+                  payload: { cellId: cell.id, status },
+                });
+                
+                const buffer = state.ptyManager.getBuffer(cell.id);
+                if (buffer) {
+                  postMessage({
+                    type: 'terminal:data',
+                    payload: { cellId: cell.id, data: buffer },
+                  });
+                }
+              }
+            }
           }
           break;
       }
     });
 
-    webviewPanel.onDidDispose(() => {
+    webviewPanel.onDidDispose(async () => {
       changeDocumentSubscription.dispose();
       onMessageDisposable.dispose();
       
       if (state) {
         state.panels.delete(webviewPanel);
+        
+        // Check if there are running terminals and this is the last panel
+        if (state.ptyManager.hasActiveTerminals() && state.panels.size === 0 && !state.isReopening) {
+          state.isReopening = true;
+          state.showCloseWarning = true;
+          
+          // Prevent closing by reopening the document
+          setTimeout(async () => {
+            await vscode.commands.executeCommand('vscode.open', document.uri, { preview: false });
+            if (state) state.isReopening = false;
+          }, 100);
+          
+          return;
+        }
+
         if (state.panels.size === 0) {
           state.ptyManager.dispose();
           editorRegistry.delete(filePath);
@@ -182,6 +224,9 @@ export class TermGridEditorProvider implements vscode.CustomTextEditorProvider {
         payload: { config: state.config },
       });
     }
+
+    // Auto-pin the tab
+    vscode.commands.executeCommand('workbench.action.pinEditor');
   }
 
   private parseConfig(document: vscode.TextDocument): TermGridConfig | undefined {

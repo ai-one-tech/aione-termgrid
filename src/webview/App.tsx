@@ -11,6 +11,9 @@ import SaveAsModal from './components/SaveAsModal';
 import { getEditorThemeKind } from './theme';
 import './styles/index.css';
 
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './components/ui/dialog';
+import { Button } from './components/ui/button';
+
 interface VSCodeApi {
   postMessage(message: unknown): void;
 }
@@ -71,6 +74,7 @@ const App: React.FC<AppProps> = ({ vscode }) => {
   const [maximizedCell, setMaximizedCell] = useState<TerminalCell | null>(null);
   const [showNewConfig, setShowNewConfig] = useState(false);
   const [showSaveAs, setShowSaveAs] = useState(false);
+  const [showCloseWarning, setShowCloseWarning] = useState(false);
   const [theme, setTheme] = useState<Theme>(() => getEditorThemeKind());
   const [language, setLanguage] = useState<Language>('zh');
   const [terminalStatuses, setTerminalStatuses] = useState<Record<string, TerminalStatus>>({});
@@ -106,6 +110,10 @@ const App: React.FC<AppProps> = ({ vscode }) => {
           // When config is loaded/updated from file, reset dirty state
           setIsDirty(false);
           setModifiedFields([]);
+          
+          if (message.type === 'config:loaded' && message.payload.showCloseWarning) {
+            setShowCloseWarning(true);
+          }
           break;
         case 'config:saved':
           // Config saved successfully, reset dirty state
@@ -369,6 +377,34 @@ const App: React.FC<AppProps> = ({ vscode }) => {
         onSaveAs={handleSaveAs}
         t={t}
       />
+
+      <Dialog open={showCloseWarning} onOpenChange={setShowCloseWarning}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-amber-500">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+              {t('appName')}
+            </DialogTitle>
+            <DialogDescription className="py-4 text-base leading-relaxed">
+              {t('closeWarningRunning')}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCloseWarning(false)}>
+              {t('cancel')}
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={() => {
+                handleStopAll();
+                setShowCloseWarning(false);
+              }}
+            >
+              {t('stop')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

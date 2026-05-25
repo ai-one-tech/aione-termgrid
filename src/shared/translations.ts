@@ -22,7 +22,9 @@ export const TRANSLATIONS = {
     linux: 'Linux',
     macOS: 'macOS',
     order: 'Order',
+    orderDescription: 'Terminals with lower order start first.',
     delay: 'Delay (ms)',
+    delayDescription: 'Time to wait before starting this terminal.',
     borderColor: 'Border Color',
     saveConfiguration: 'Save Configuration',
     saveAs: 'Save As',
@@ -54,6 +56,7 @@ export const TRANSLATIONS = {
     exitMergeMode: 'Exit Merge Mode',
     enterCommand: 'Enter the command to execute',
     commandRequired: 'Please enter at least one command',
+    closeWarningRunning: 'There are still running terminals. Please stop them before closing.',
   },
   zh: {
     appName: 'AiOne TermGrid',
@@ -77,7 +80,9 @@ export const TRANSLATIONS = {
     linux: 'Linux',
     macOS: 'macOS',
     order: '顺序',
+    orderDescription: '数字越小越先启动，相同数字并行启动。',
     delay: '延迟 (毫秒)',
+    delayDescription: '启动此终端前的等待时间。',
     borderColor: '边框颜色',
     saveConfiguration: '保存配置',
     saveAs: '另存为',
@@ -109,6 +114,7 @@ export const TRANSLATIONS = {
     exitMergeMode: '退出合并模式',
     enterCommand: '请输入执行的脚本',
     commandRequired: '请至少填写一个命令',
+    closeWarningRunning: '当前页面中还存在运行中的终端，请点击停止按钮后再关闭。',
   },
 } as const;
 

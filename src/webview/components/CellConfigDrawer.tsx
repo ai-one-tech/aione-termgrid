@@ -143,6 +143,7 @@ const CellConfigDrawer: React.FC<CellConfigDrawerProps> = ({
       title: localCell.title,
       cwd: localCell.cwd,
       command: localCell.command,
+      order: localCell.order,
       delay: localCell.delay,
       borderColor: localCell.borderColor,
     };
@@ -210,17 +211,35 @@ const CellConfigDrawer: React.FC<CellConfigDrawerProps> = ({
             })}
           </div>
 
-          {/* Delay */}
-          <div className="space-y-2">
-            <Label className="text-[var(--vscode-editor-foreground,#cccccc)]">{t('delay')}</Label>
-            <Input
-              type="number"
-              min={0}
-              max={300}
-              value={localCell.delay}
-              onChange={(e) => handleUpdate({ delay: parseInt(e.target.value) || 0 })}
-              className="bg-[var(--vscode-input-background,#3c3c3c)] border-[var(--vscode-input-border,#3c3c3c)] text-[var(--vscode-editor-foreground,#cccccc)]"
-            />
+          {/* Order and Delay */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label className="text-[var(--vscode-editor-foreground,#cccccc)]">{t('order')}</Label>
+              <Input
+                type="number"
+                min={1}
+                value={localCell.order}
+                onChange={(e) => handleUpdate({ order: parseInt(e.target.value) || 1 })}
+                className="bg-[var(--vscode-input-background,#3c3c3c)] border-[var(--vscode-input-border,#3c3c3c)] text-[var(--vscode-editor-foreground,#cccccc)]"
+              />
+              <p className="text-[10px] text-[var(--vscode-descriptionForeground,#858585)] leading-tight">
+                {t('orderDescription' as any)}
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[var(--vscode-editor-foreground,#cccccc)]">{t('delay')}</Label>
+              <Input
+                type="number"
+                min={0}
+                max={60000}
+                value={localCell.delay}
+                onChange={(e) => handleUpdate({ delay: parseInt(e.target.value) || 0 })}
+                className="bg-[var(--vscode-input-background,#3c3c3c)] border-[var(--vscode-input-border,#3c3c3c)] text-[var(--vscode-editor-foreground,#cccccc)]"
+              />
+              <p className="text-[10px] text-[var(--vscode-descriptionForeground,#858585)] leading-tight">
+                {t('delayDescription' as any)}
+              </p>
+            </div>
           </div>
 
           {/* Border Color */}

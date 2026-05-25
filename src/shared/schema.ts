@@ -16,7 +16,8 @@ export const TerminalCellSchema = z.object({
   cwd: z.string(),
   command: PlatformCommandSchema.nullable().optional(),
   env: z.record(z.string()).optional(),
-  delay: z.number().int().min(0).max(300).default(0),
+  order: z.number().int().min(1).default(1),
+  delay: z.number().int().min(0).max(60000).default(0),
   colSpan: z.number().int().min(1).optional(),
   rowSpan: z.number().int().min(1).optional(),
 });

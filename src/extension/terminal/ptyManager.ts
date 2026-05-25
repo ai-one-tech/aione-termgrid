@@ -49,7 +49,10 @@ export interface PtyProcess {
   cell: TerminalCell;
   status: TerminalStatus;
   startTime: number;
+  buffer: string[];
 }
+
+const MAX_BUFFER_LINES = 1000;
 
 export interface PtyManagerOptions {
   workspaceRoot?: string;
@@ -81,6 +84,12 @@ export class PtyManager {
 
     try {
       this.options.onStatusChange(cell.id, 'pending');
+      
+      // Ensure buffer is clean for a new run
+      const existingProcess = this.processes.get(cell.id);
+      if (existingProcess) {
+        existingProcess.buffer = [];
+      }
 
       const shellCmd = getDefaultShell();
       const initialCommand = resolveCommandText(cell.command ?? { default: '' });
@@ -130,9 +139,15 @@ export class PtyManager {
         cell,
         status: 'running',
         startTime: Date.now(),
+        buffer: [],
       };
 
       ptyProcess.onData((data: string) => {
+        // Store in buffer
+        processData.buffer.push(data);
+        if (processData.buffer.length > MAX_BUFFER_LINES) {
+          processData.buffer.shift();
+        }
         this.options.onData(cell.id, data);
       });
 
@@ -150,7 +165,13 @@ export class PtyManager {
       this.options.onStatusChange(cell.id, 'running');
 
       if (initialCommand) {
-        ptyProcess.write(`${initialCommand}\r`);
+        // Simple delay to ensure the shell is ready to receive input
+        setTimeout(() => {
+          const activeProcess = this.processes.get(cell.id);
+          if (activeProcess) {
+            activeProcess.pty.write(`${initialCommand}\r`);
+          }
+        }, 500);
       }
     } catch (error) {
       this.options.onStatusChange(cell.id, 'error');
@@ -200,7 +221,7 @@ export class PtyManager {
     for (const cell of cells) {
       this.executionQueue.add({
         id: cell.id,
-        order: 1,
+        order: cell.order ?? 1,
         delay: cell.delay,
         execute: async () => {
           await this.startCell(cell);
@@ -292,10 +313,25 @@ export class PtyManager {
   }
 
   /**
+   * Check if any terminal is running or being started
+   */
+  hasActiveTerminals(): boolean {
+    return this.processes.size > 0 || this.executionQueue.isRunning();
+  }
+
+  /**
    * Get all running terminal IDs
    */
   getRunningIds(): string[] {
     return Array.from(this.processes.keys());
+  }
+
+  /**
+   * Get terminal data buffer
+   */
+  getBuffer(cellId: string): string {
+    const processData = this.processes.get(cellId);
+    return processData ? processData.buffer.join('') : '';
   }
 
   /**
