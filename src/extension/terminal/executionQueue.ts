@@ -82,14 +82,23 @@ export class ExecutionQueue {
         // Execute tasks with the same order in parallel
         await Promise.all(
           tasks.map(async (task) => {
-            // Apply individual delay before executing
-            if (task.delay > 0) {
-              await this.delay(task.delay);
+            try {
+              // Apply individual delay before executing
+              if (task.delay > 0) {
+                await this.delay(task.delay, this.abortController?.signal);
+              }
+              
               if (this.abortController?.signal.aborted) {
                 return;
               }
+              
+              await task.execute();
+            } catch (error) {
+              if (error instanceof Error && error.name === 'AbortError') {
+                return;
+              }
+              throw error;
             }
-            await task.execute();
           })
         );
       }
@@ -126,9 +135,22 @@ export class ExecutionQueue {
   }
 
   /**
-   * Delay helper
+   * Delay helper with abortion support
    */
-  private delay(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
+  private delay(ms: number, signal?: AbortSignal): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(resolve, ms);
+      if (signal) {
+        if (signal.aborted) {
+          clearTimeout(timeout);
+          reject(new Error('AbortError'));
+          return;
+        }
+        signal.addEventListener('abort', () => {
+          clearTimeout(timeout);
+          reject(new Error('AbortError'));
+        }, { once: true });
+      }
+    });
   }
 }

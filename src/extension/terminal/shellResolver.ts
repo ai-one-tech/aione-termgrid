@@ -1,5 +1,6 @@
 import * as os from 'os';
 import * as path from 'path';
+import * as fs from 'fs';
 import { execSync } from 'child_process';
 
 /**
@@ -54,7 +55,7 @@ function getWindowsCmdPath(): string {
 
 /**
  * Detect the default shell for the current platform
- * Returns full path on Windows
+ * Returns full path
  */
 export function detectDefaultShell(): string {
   if (PLATFORM === 'win32') {
@@ -65,8 +66,28 @@ export function detectDefaultShell(): string {
     return getWindowsCmdPath();
   }
 
-  // For Unix-like systems, use the user's shell from passwd or env
-  return process.env.SHELL || '/bin/sh';
+  // For Unix-like systems, use the user's shell from env or fallback to common shells
+  const envShell = process.env.SHELL;
+  if (envShell && fs.existsSync(envShell)) {
+    return envShell;
+  }
+
+  // Fallback list for macOS/Linux
+  const fallbacks = [
+    '/bin/zsh',
+    '/bin/bash',
+    '/usr/bin/zsh',
+    '/usr/bin/bash',
+    '/bin/sh'
+  ];
+
+  for (const fallback of fallbacks) {
+    if (fs.existsSync(fallback)) {
+      return fallback;
+    }
+  }
+
+  return '/bin/sh';
 }
 
 /**
@@ -175,20 +196,19 @@ export function getPlatform(): 'win32' | 'darwin' | 'linux' | 'unknown' {
 }
 
 /**
- * Resolve working directory
+ * Resolve working directory to an absolute path
  */
 export function resolveCwd(cwd: string, workspaceRoot?: string): string {
-  if (path.isAbsolute(cwd)) {
-    return cwd;
+  let resolvedCwd = cwd;
+
+  if (cwd.startsWith('~')) {
+    resolvedCwd = path.join(os.homedir(), cwd.slice(1));
   }
 
-  if (cwd === '.' && workspaceRoot) {
-    return workspaceRoot;
+  if (path.isAbsolute(resolvedCwd)) {
+    return resolvedCwd;
   }
 
-  if (workspaceRoot) {
-    return path.join(workspaceRoot, cwd);
-  }
-
-  return cwd;
+  const baseDir = workspaceRoot || process.cwd();
+  return path.resolve(baseDir, resolvedCwd);
 }

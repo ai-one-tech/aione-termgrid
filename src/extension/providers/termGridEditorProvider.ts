@@ -1,14 +1,26 @@
 import * as vscode from 'vscode';
+import YAML from 'yaml';
 import { ConfigManager } from '../config/configManager';
-import { TermGridConfig } from '../../shared/schema';
+import { TermGridConfig, TermGridConfigSchema } from '../../shared/schema';
 import { TerminalStatus } from '../../shared/types';
 import { PtyManager } from '../terminal/ptyManager';
 
-// Registry to look up PtyManager by document file path (for sidebar commands)
-const editorRegistry = new Map<string, { ptyManager: PtyManager; getConfig: () => TermGridConfig | undefined }>();
+interface SharedEditorState {
+  ptyManager: PtyManager;
+  config: TermGridConfig | undefined;
+  panels: Set<vscode.WebviewPanel>;
+}
+
+// Registry to look up shared state by document file path
+const editorRegistry = new Map<string, SharedEditorState>();
 
 export function getEditorPtyManager(filePath: string): { ptyManager: PtyManager; getConfig: () => TermGridConfig | undefined } | undefined {
-  return editorRegistry.get(filePath);
+  const state = editorRegistry.get(filePath);
+  if (!state) return undefined;
+  return {
+    ptyManager: state.ptyManager,
+    getConfig: () => state.config,
+  };
 }
 
 export class TermGridEditorProvider implements vscode.CustomTextEditorProvider {
@@ -24,103 +36,88 @@ export class TermGridEditorProvider implements vscode.CustomTextEditorProvider {
     webviewPanel: vscode.WebviewPanel,
     token: vscode.CancellationToken
   ): Promise<void> {
+    const filePath = document.uri.fsPath;
     const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-    let disposed = false;
-    let config: TermGridConfig | undefined = undefined;
-    const panelDisposables: vscode.Disposable[] = [];
+    
+    // Get or create shared state for this document
+    let state = editorRegistry.get(filePath);
+    if (!state) {
+      const ptyManager = new PtyManager({
+        workspaceRoot,
+        onData: (cellId: string, data: string) => {
+          this.broadcast(filePath, {
+            type: 'terminal:data',
+            payload: { cellId, data },
+          });
+        },
+        onStatusChange: (cellId: string, status: TerminalStatus) => {
+          this.broadcast(filePath, {
+            type: 'terminal:status',
+            payload: { cellId, status },
+          });
+        },
+        onExit: (cellId: string, code: number) => {
+          this.broadcast(filePath, {
+            type: 'terminal:exited',
+            payload: { cellId, code },
+          });
+        },
+      });
+
+      state = {
+        ptyManager,
+        config: this.parseConfig(document),
+        panels: new Set(),
+      };
+      editorRegistry.set(filePath, state);
+    }
+
+    state.panels.add(webviewPanel);
+    const ptyManager = state.ptyManager;
 
     const postMessage = (message: unknown) => {
-      if (disposed) {
-        return;
-      }
-      void webviewPanel.webview.postMessage(message).then(undefined, () => {});
-    };
-
-    // Initialize PTY manager for this editor instance
-    const ptyManager = new PtyManager({
-      workspaceRoot,
-      onData: (cellId: string, data: string) => {
-        postMessage({
-          type: 'terminal:data',
-          payload: { cellId, data },
-        });
-      },
-      onStatusChange: (cellId: string, status: TerminalStatus) => {
-        postMessage({
-          type: 'terminal:status',
-          payload: { cellId, status },
-        });
-      },
-      onExit: (cellId: string, code: number) => {
-        postMessage({
-          type: 'terminal:exited',
-          payload: { cellId, code },
-        });
-      },
-    });
-
-    // Register this editor's PtyManager in the registry
-    editorRegistry.set(document.uri.fsPath, {
-      ptyManager,
-      getConfig: () => config,
-    });
-
-    const disposePanelResources = () => {
-      if (disposed) {
-        return;
-      }
-      disposed = true;
-      editorRegistry.delete(document.uri.fsPath);
-      for (const d of panelDisposables.splice(0)) {
-        try {
-          d.dispose();
-        } catch (error) {
-          void error;
-        }
-      }
-      ptyManager.dispose();
+      webviewPanel.webview.postMessage(message).then(undefined, () => {});
     };
 
     const changeDocumentSubscription = vscode.workspace.onDidChangeTextDocument(async (e) => {
       if (e.document.uri.toString() === document.uri.toString()) {
-        // Config file changed externally, reload config
-        this.configManager.clearCache();
-        const newConfig = await this.configManager.readConfig(document.uri.fsPath);
-        if (newConfig) {
-          config = newConfig;
-          postMessage({
+        const newConfig = this.parseConfig(document);
+        if (newConfig && state) {
+          state.config = newConfig;
+          this.broadcast(filePath, {
             type: 'config:updated',
             payload: { config: newConfig },
           });
         }
       }
     });
-    panelDisposables.push(changeDocumentSubscription);
 
     const onMessageDisposable = webviewPanel.webview.onDidReceiveMessage(async (message) => {
+      if (!state) return;
+      
       switch (message.type) {
         case 'config:save':
-          await this.handleSaveConfig(document, message.payload.config, postMessage);
+          await this.handleSaveConfig(document, message.payload.config);
           break;
         case 'config:saveAs':
           await this.handleSaveAsConfig(webviewPanel, message.payload.name, message.payload.config);
           break;
         case 'terminal:start':
-          if (config) {
-            await this.handleTerminalStart(ptyManager, message.payload.cellId, config);
+          if (state.config) {
+            await this.handleTerminalStart(ptyManager, message.payload.cellId, state.config);
           }
           break;
         case 'terminal:stop':
           await this.handleTerminalStop(ptyManager, message.payload.cellId);
           break;
         case 'terminal:restart':
-          if (config) {
-            await this.handleTerminalRestart(ptyManager, message.payload.cellId, config);
+          if (state.config) {
+            await this.handleTerminalRestart(ptyManager, message.payload.cellId, state.config);
           }
           break;
         case 'terminal:restartAll':
-          if (config) {
-            await this.handleTerminalRestartAll(ptyManager, config);
+          if (state.config) {
+            await this.handleTerminalRestartAll(ptyManager, state.config);
           }
           break;
         case 'terminal:input':
@@ -138,25 +135,28 @@ export class TermGridEditorProvider implements vscode.CustomTextEditorProvider {
           webviewPanel.webview.html = this.getHtmlForWebview(webviewPanel.webview);
           break;
         case 'webview:ready':
-          if (config) {
+          if (state.config) {
             postMessage({
               type: 'config:loaded',
-              payload: { config },
+              payload: { config: state.config },
             });
           }
           break;
       }
     });
-    panelDisposables.push(onMessageDisposable);
 
     webviewPanel.onDidDispose(() => {
-      disposePanelResources();
+      changeDocumentSubscription.dispose();
+      onMessageDisposable.dispose();
+      
+      if (state) {
+        state.panels.delete(webviewPanel);
+        if (state.panels.size === 0) {
+          state.ptyManager.dispose();
+          editorRegistry.delete(filePath);
+        }
+      }
     });
-
-    if (token.isCancellationRequested) {
-      disposePanelResources();
-      return;
-    }
 
     // Set up webview
     webviewPanel.webview.options = {
@@ -170,18 +170,33 @@ export class TermGridEditorProvider implements vscode.CustomTextEditorProvider {
     // Set initial HTML
     webviewPanel.webview.html = this.getHtmlForWebview(webviewPanel.webview);
 
-    // Load config
-    config = await this.configManager.readConfig(document.uri.fsPath);
-    if (disposed || token.isCancellationRequested) {
-      return;
-    }
-
-    // If config loaded successfully, notify webview
-    if (config) {
+    // Notify webview of initial config
+    if (state.config) {
       postMessage({
         type: 'config:loaded',
-        payload: { config },
+        payload: { config: state.config },
       });
+    }
+  }
+
+  private parseConfig(document: vscode.TextDocument): TermGridConfig | undefined {
+    try {
+      const text = document.getText();
+      if (!text.trim()) return undefined;
+      const parsed = YAML.parse(text);
+      return TermGridConfigSchema.parse(parsed);
+    } catch (error) {
+      console.error(`Failed to parse config from document ${document.uri.fsPath}:`, error);
+      return undefined;
+    }
+  }
+
+  private broadcast(filePath: string, message: unknown): void {
+    const state = editorRegistry.get(filePath);
+    if (state) {
+      for (const panel of state.panels) {
+        panel.webview.postMessage(message).then(undefined, () => {});
+      }
     }
   }
 
@@ -314,13 +329,23 @@ export class TermGridEditorProvider implements vscode.CustomTextEditorProvider {
 
   private async handleSaveConfig(
     document: vscode.TextDocument,
-    config: TermGridConfig,
-    postMessage: (message: unknown) => void
+    config: TermGridConfig
   ): Promise<void> {
-    const success = await this.configManager.writeConfig(document.uri.fsPath, config);
+    const edit = new vscode.WorkspaceEdit();
+    const yaml = YAML.stringify(config, {
+      sortMapEntries: true,
+      indent: 2,
+    });
+
+    edit.replace(
+      document.uri,
+      new vscode.Range(0, 0, document.lineCount, 0),
+      yaml
+    );
+    
+    const success = await vscode.workspace.applyEdit(edit);
     if (success) {
-      // Notify webview that config has been saved
-      postMessage({
+      this.broadcast(document.uri.fsPath, {
         type: 'config:saved',
         payload: { config },
       });

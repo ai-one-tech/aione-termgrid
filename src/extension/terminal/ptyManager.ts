@@ -1,5 +1,6 @@
 import * as os from 'os';
 import * as child_process from 'child_process';
+import * as fs from 'fs';
 import type * as Pty from 'node-pty';
 import { TerminalCell } from '../../shared/schema';
 import { TerminalStatus } from '../../shared/types';
@@ -20,7 +21,7 @@ function getPty(): typeof Pty {
       throw new Error('node-pty module not available. Terminal features will not work.');
     }
   }
-  return _pty;
+  return _pty as typeof Pty;
 }
 
 /**
@@ -83,8 +84,25 @@ export class PtyManager {
 
       const shellCmd = getDefaultShell();
       const initialCommand = resolveCommandText(cell.command ?? { default: '' });
-      const cwd = resolveCwd(cell.cwd, this.options.workspaceRoot);
+      let cwd = resolveCwd(cell.cwd, this.options.workspaceRoot);
       const shell = shellCmd.shell.trim();
+
+      // Verify CWD exists, otherwise fallback
+      if (!fs.existsSync(cwd)) {
+        console.warn(`[TermGrid] CWD does not exist: ${cwd}. Falling back to workspace root or temp dir.`);
+        cwd = this.options.workspaceRoot || os.tmpdir();
+        if (!fs.existsSync(cwd)) {
+          cwd = os.tmpdir();
+        }
+      }
+
+      console.log(`[TermGrid] Attempting to start cell ${cell.id}:`, {
+        shell,
+        args: shellCmd.args,
+        cwd,
+        workspaceRoot: this.options.workspaceRoot,
+        processCwd: process.cwd()
+      });
 
       if (!shell) {
         throw new Error(`Resolved empty shell for terminal ${cell.id}`);
@@ -197,22 +215,37 @@ export class PtyManager {
    * Stop all running terminals
    */
   async stopAll(): Promise<void> {
+    // Stop any pending starts in the queue
     this.executionQueue.stop();
+    this.executionQueue.clear();
 
     const stopPromises: Promise<void>[] = [];
-    for (const [cellId] of this.processes) {
+    // Copy keys to avoid iteration issues if stopCell modifies the map
+    const cellIds = Array.from(this.processes.keys());
+    
+    for (const cellId of cellIds) {
       stopPromises.push(this.stopCell(cellId));
     }
 
     await Promise.all(stopPromises);
+    
+    // Give a small amount of time for OS to clean up handles
+    if (stopPromises.length > 0) {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
   }
 
   /**
    * Restart all terminals
    */
   async restartAll(cells: TerminalCell[]): Promise<void> {
+    console.log(`[TermGrid] restartAll: stopping ${this.processes.size} processes`);
     await this.stopAll();
-    await new Promise((resolve) => setTimeout(resolve, 200));
+    
+    // Wait for everything to settle
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    
+    console.log(`[TermGrid] restartAll: starting ${cells.length} cells`);
     await this.startAll(cells);
   }
 

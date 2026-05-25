@@ -54,6 +54,25 @@ const CheckIcon: React.FC<{ className?: string }> = ({ className }) => (
   </svg>
 );
 
+// X icon component for "None"
+const XIcon: React.FC<{ className?: string }> = ({ className }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="14"
+    height="14"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="3"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+  >
+    <line x1="18" y1="6" x2="6" y2="18" />
+    <line x1="6" y1="6" x2="18" y2="18" />
+  </svg>
+);
+
 const CellConfigDrawer: React.FC<CellConfigDrawerProps> = ({
   cell,
   open,
@@ -209,35 +228,35 @@ const CellConfigDrawer: React.FC<CellConfigDrawerProps> = ({
             <Label className="text-[var(--vscode-editor-foreground,#cccccc)]">{t('borderColor')}</Label>
             <div className="flex gap-2 flex-wrap items-center">
               <button
-                className={`w-8 h-8 rounded-md border-2 transition-all flex items-center justify-center ${
+                className={`w-8 h-8 rounded-full border-2 transition-all flex items-center justify-center ${
                   !localCell.borderColor
                     ? 'border-[var(--vscode-focusBorder,#007fd4)]'
                     : 'border-[var(--vscode-panel-border,#3c3c3c)]'
-                }`}
-                style={{ backgroundColor: 'var(--vscode-editor-background,#1e1e1e)' }}
+                } hover:border-[var(--vscode-focusBorder,#007fd4)]`}
+                style={{ 
+                  backgroundColor: !localCell.borderColor 
+                    ? 'var(--vscode-list-hoverBackground, rgba(127,127,127,0.1))' 
+                    : 'var(--vscode-editor-background,#1e1e1e)' 
+                }}
                 onClick={() => handleUpdate({ borderColor: undefined })}
                 title="None"
               >
-                {!localCell.borderColor ? (
-                  <CheckIcon className="text-[var(--vscode-focusBorder,#007fd4)]" />
-                ) : (
-                  <span className="text-xs text-[var(--vscode-descriptionForeground,#858585)]">—</span>
-                )}
+                <XIcon className={!localCell.borderColor ? "text-[var(--vscode-focusBorder,#007fd4)]" : "text-[var(--vscode-descriptionForeground,#858585)] opacity-40"} />
               </button>
               {BORDER_COLORS.map((color) => {
                 const isSelected = localCell.borderColor === color;
                 return (
                   <button
                     key={color}
-                    className={`w-8 h-8 rounded-md border-2 transition-all flex items-center justify-center ${
+                    className={`w-8 h-8 rounded-full border-2 transition-all flex items-center justify-center ${
                       isSelected
-                        ? 'border-transparent'
+                        ? 'border-[var(--vscode-focusBorder,#007fd4)]'
                         : 'border-transparent hover:border-[var(--vscode-panel-border,#3c3c3c)]'
                     }`}
                     style={{ backgroundColor: color }}
                     onClick={() => handleUpdate({ borderColor: color })}
                   >
-                    {isSelected && <CheckIcon className="text-white" />}
+                    {isSelected && <CheckIcon className="text-white drop-shadow-sm" />}
                   </button>
                 );
               })}
