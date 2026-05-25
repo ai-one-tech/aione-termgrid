@@ -397,54 +397,123 @@ const TerminalGrid: React.FC<TerminalGridProps> = ({
       })}
 
       {/* Column resize handles */}
-      {colSizes.length > 1 && colSizes.map((_, index) => {
-        if (index >= colSizes.length - 1) return null;
-        // Calculate position: sum of previous column sizes
-        const leftPercent = colSizes.slice(0, index + 1).reduce((a, b) => a + b, 0);
-        const totalGap = (colSizes.length - 1) * 5;
-        const totalReserved = 8 + totalGap; // 4px padding each side
-        return (
-          <div
-            key={`col-resizer-${index}`}
-            className="grid-resizer-col"
+      {colSizes.length > 1 && colSizes.map((_, colIndex) => {
+        if (colIndex >= colSizes.length - 1) return null;
+
+        // Find contiguous segments of rows where cells are different across this column boundary
+        const segments: { startRow: number; endRow: number }[] = [];
+        let currentSegment: { startRow: number; endRow: number } | null = null;
+
+        for (let rowIndex = 0; rowIndex < cellGrid.length; rowIndex++) {
+          if (cellGrid[rowIndex][colIndex] !== cellGrid[rowIndex][colIndex + 1]) {
+            if (!currentSegment) {
+              currentSegment = { startRow: rowIndex, endRow: rowIndex };
+              segments.push(currentSegment);
+            } else {
+              currentSegment.endRow = rowIndex;
+            }
+          } else {
+            currentSegment = null;
+          }
+        }
+
+        if (segments.length === 0) return null;
+
+        const leftPercent = colSizes.slice(0, colIndex + 1).reduce((a, b) => a + b, 0);
+        const colGapCount = colSizes.length - 1;
+        const colTotalGap = colGapCount * 5;
+        const colTotalReserved = 8 + colTotalGap;
+        const leftPos = `calc(4px + (${leftPercent / 100} * (100% - ${colTotalReserved}px)) + ${colIndex * 5 + 2.5}px)`;
+
+        const rowGapCount = rowSizes.length - 1;
+        const rowTotalGap = rowGapCount * 5;
+        const rowTotalReserved = 8 + rowTotalGap;
+
+        return segments.map((seg, segIndex) => {
+          const topPercent = rowSizes.slice(0, seg.startRow).reduce((a, b) => a + b, 0);
+          const bottomPercent = rowSizes.slice(0, seg.endRow + 1).reduce((a, b) => a + b, 0);
+
+          const topPos = `calc(4px + (${topPercent / 100} * (100% - ${rowTotalReserved}px)) + ${seg.startRow * 5}px)`;
+          const bottomPos = `calc(4px + (${bottomPercent / 100} * (100% - ${rowTotalReserved}px)) + ${seg.endRow * 5}px)`;
+
+          return (
+            <div
+              key={`col-resizer-${colIndex}-seg-${segIndex}`}
+              className="grid-resizer-col"
               style={{
                 position: 'absolute',
-                left: `calc(4px + (${leftPercent / 100} * (100% - ${totalReserved}px)) + ${index * 5 + 2.5}px)`,
-                top: 0,
-                bottom: 0,
+                left: leftPos,
+                top: topPos,
+                height: `calc(${bottomPos} - ${topPos})`,
                 width: '5px',
                 transform: 'translateX(-50%)',
                 cursor: 'col-resize',
                 zIndex: 10,
               }}
-            onMouseDown={(e) => handleColResizeStart(index, e)}
-          />
-        );
+              onMouseDown={(e) => handleColResizeStart(colIndex, e)}
+            />
+          );
+        });
       })}
 
       {/* Row resize handles */}
-      {rowSizes.length > 1 && rowSizes.map((_, index) => {
-        if (index >= rowSizes.length - 1) return null;
-        const topPercent = rowSizes.slice(0, index + 1).reduce((a, b) => a + b, 0);
-        const totalGap = (rowSizes.length - 1) * 5;
-        const totalReserved = 8 + totalGap; // 4px padding each side
-        return (
-          <div
-            key={`row-resizer-${index}`}
-            className="grid-resizer-row"
-            style={{
-              position: 'absolute',
-              top: `calc(4px + (${topPercent / 100} * (100% - ${totalReserved}px)) + ${index * 5 + 2.5}px)`,
-              left: 0,
-              right: 0,
-              height: '5px',
-              transform: 'translateY(-50%)',
-              cursor: 'row-resize',
-              zIndex: 10,
-            }}
-            onMouseDown={(e) => handleRowResizeStart(index, e)}
-          />
-        );
+      {rowSizes.length > 1 && rowSizes.map((_, rowIndex) => {
+        if (rowIndex >= rowSizes.length - 1) return null;
+
+        // Find contiguous segments of columns where cells are different across this row boundary
+        const segments: { startCol: number; endCol: number }[] = [];
+        let currentSegment: { startCol: number; endCol: number } | null = null;
+
+        for (let colIndex = 0; colIndex < (cellGrid[0]?.length || 0); colIndex++) {
+          if (cellGrid[rowIndex][colIndex] !== cellGrid[rowIndex + 1][colIndex]) {
+            if (!currentSegment) {
+              currentSegment = { startCol: colIndex, endCol: colIndex };
+              segments.push(currentSegment);
+            } else {
+              currentSegment.endCol = colIndex;
+            }
+          } else {
+            currentSegment = null;
+          }
+        }
+
+        if (segments.length === 0) return null;
+
+        const topPercent = rowSizes.slice(0, rowIndex + 1).reduce((a, b) => a + b, 0);
+        const rowGapCount = rowSizes.length - 1;
+        const rowTotalGap = rowGapCount * 5;
+        const rowTotalReserved = 8 + rowTotalGap;
+        const topPos = `calc(4px + (${topPercent / 100} * (100% - ${rowTotalReserved}px)) + ${rowIndex * 5 + 2.5}px)`;
+
+        const colGapCount = colSizes.length - 1;
+        const colTotalGap = colGapCount * 5;
+        const colTotalReserved = 8 + colTotalGap;
+
+        return segments.map((seg, segIndex) => {
+          const leftPercent = colSizes.slice(0, seg.startCol).reduce((a, b) => a + b, 0);
+          const rightPercent = colSizes.slice(0, seg.endCol + 1).reduce((a, b) => a + b, 0);
+
+          const leftPos = `calc(4px + (${leftPercent / 100} * (100% - ${colTotalReserved}px)) + ${seg.startCol * 5}px)`;
+          const rightPos = `calc(4px + (${rightPercent / 100} * (100% - ${colTotalReserved}px)) + ${seg.endCol * 5}px)`;
+
+          return (
+            <div
+              key={`row-resizer-${rowIndex}-seg-${segIndex}`}
+              className="grid-resizer-row"
+              style={{
+                position: 'absolute',
+                top: topPos,
+                left: leftPos,
+                width: `calc(${rightPos} - ${leftPos})`,
+                height: '5px',
+                transform: 'translateY(-50%)',
+                cursor: 'row-resize',
+                zIndex: 10,
+              }}
+              onMouseDown={(e) => handleRowResizeStart(rowIndex, e)}
+            />
+          );
+        });
       })}
     </div>
   );
