@@ -96,9 +96,16 @@ export function detectDefaultShell(): string {
  */
 export function getDefaultShell(): ShellCommand {
   const shell = detectDefaultShell();
+  const args: string[] = [];
+
+  // Add -l (login) flag for Unix-like systems to ensure profile scripts (~/.zprofile, etc.) are loaded
+  if (PLATFORM === 'darwin' || PLATFORM === 'linux') {
+    args.push('-l');
+  }
+
   return {
     shell,
-    args: [],
+    args,
   };
 }
 
