@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { TermGridConfig, TerminalCell, MergedCell } from '../../shared/schema';
 import { Language } from '../../shared/types';
 import { TranslationKey } from '../../shared/translations';
@@ -34,6 +34,11 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
   t,
 }) => {
   const [localConfig, setLocalConfig] = useState<TermGridConfig>(config);
+
+  // Sync localConfig when config prop changes (e.g. language change from parent)
+  useEffect(() => {
+    setLocalConfig(config);
+  }, [config]);
   // Merge selection state: array of selected [row, col]
   const [selectedCells, setSelectedCells] = useState<[number, number][]>([]);
   // Merge mode toggle
@@ -44,43 +49,54 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
 
   // Update layout
   const updateLayout = (rows: number, cols: number) => {
-    // Filter out merged cells that are out of bounds
+    // 1. Filter out merged cells that are out of bounds in the new layout
     const validMergedCells = (localConfig.mergedCells || []).filter(
       (m) =>
-        m.startRow < rows &&
         m.endRow < rows &&
-        m.startCol < cols &&
         m.endCol < cols &&
         m.startRow >= 0 &&
-        m.endRow >= 0 &&
-        m.startCol >= 0 &&
-        m.endCol >= 0
+        m.startCol >= 0
     );
 
-    const totalCells = rows * cols;
-    const existingCells = localConfig.cells;
-    const newCells = [...existingCells];
-
-    // Add new cells if layout requires more
-    if (totalCells > existingCells.length) {
-      for (let i = existingCells.length; i < totalCells; i++) {
-        newCells.push({
-          id: `cell-${i + 1}`,
-          title: `Terminal ${i + 1}`,
-          cwd: '.',
-          delay: 0,
-        });
+    // 2. Map existing cells by their (row, col) to preserve their data spatially
+    // This prevents cells from "shifting" when columns are added/removed
+    const oldRows = localConfig.layout.rows;
+    const oldCols = localConfig.layout.cols;
+    const spatialMap = new Map<string, TerminalCell>();
+    
+    localConfig.cells.forEach((cell, index) => {
+      const r = Math.floor(index / oldCols);
+      const c = index % oldCols;
+      if (r < oldRows && c < oldCols) {
+        spatialMap.set(`${r},${c}`, cell);
       }
-    }
+    });
 
-    // Remove excess cells if layout requires fewer
-    if (totalCells < existingCells.length) {
-      newCells.splice(totalCells);
+    // 3. Reconstruct cells array based on the new dimensions
+    const newCells: TerminalCell[] = [];
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const key = `${r},${c}`;
+        const existingCell = spatialMap.get(key);
+        
+        if (existingCell) {
+          newCells.push(existingCell);
+        } else {
+          // New position, initialize with default
+          const newIndex = r * cols + c + 1;
+          newCells.push({
+            id: `cell-${r}-${c}`, // Deterministic ID based on position
+            title: `Terminal ${newIndex}`,
+            cwd: '.',
+            delay: 0,
+          });
+        }
+      }
     }
 
     const updatedConfig = {
       ...localConfig,
-      layout: { rows, cols },
+      layout: { ...localConfig.layout, rows, cols },
       cells: newCells,
       mergedCells: validMergedCells,
     };

@@ -24,10 +24,17 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build and Package
+      - name: Build and Package (AiOne)
         run: npm run vsix
 
-      - name: Create Release
+      - name: Prepare Package (AiOneTech)
+        run: |
+          # 将 package.json 中的 publisher 替换为 AiOneTech
+          jq '.publisher = "AiOneTech"' package.json > package.json.tmp && mv package.json.tmp package.json
+          # 重新打包生成适用于 Open VSX 的 vsix
+          npx vsce package --out aionetech-termgrid.vsix
+
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: "*.vsix"
@@ -39,16 +46,11 @@ jobs:
 
       - name: Publish to VS Code Marketplace
         if: success()
-        run: npx vsce publish --packagePath $(ls *.vsix) -p ${{ secrets.VSCE_PAT }}
+        run: |
+          # 找回 AiOne 版本的 vsix (排除 aionetech 开头的那个)
+          AIONE_VSIX=$(ls *.vsix | grep -v "aionetech-termgrid.vsix" | head -n 1)
+          npx vsce publish --packagePath $AIONE_VSIX -p ${{ secrets.VSCE_PAT }}
 
       - name: Publish to Open VSX Registry
         if: success()
-        run: |
-          # 将 package.json 中的 publisher 替换为 AiOneTech
-          jq '.publisher = "AiOneTech"' package.json > package.json.tmp && mv package.json.tmp package.json
-          
-          # 重新打包生成适用于 Open VSX 的 vsix
-          npx vsce package --out aionetech-termgrid.vsix
-          
-          # 发布到 Open VSX
-          npx ovsx publish aionetech-termgrid.vsix -p ${{ secrets.OVSX_PAT }}
+        run: npx ovsx publish aionetech-termgrid.vsix -p ${{ secrets.OVSX_PAT }}

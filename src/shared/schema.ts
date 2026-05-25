@@ -23,8 +23,8 @@ export const TerminalCellSchema = z.object({
 
 // Grid layout configuration
 export const GridLayoutSchema = z.object({
-  rows: z.number().int().min(1).max(4),
-  cols: z.number().int().min(1).max(4),
+  rows: z.number().int().min(1).max(20),
+  cols: z.number().int().min(1).max(20),
   colWidths: z.array(z.number().min(0.1)).optional(),
   rowHeights: z.array(z.number().min(0.1)).optional(),
 });
@@ -43,9 +43,8 @@ export const MergedCellSchema = z.object({
 export const TermGridConfigSchema = z.object({
   name: z.string().min(1).max(100),
   layout: GridLayoutSchema,
-  cells: z.array(TerminalCellSchema).min(1).max(16),
+  cells: z.array(TerminalCellSchema).min(1).max(50),
   mergedCells: z.array(MergedCellSchema).optional().default([]),
-  theme: z.enum(['dark', 'light']).optional().default('dark'),
   language: z.string().optional().default('zh'),
 });
 

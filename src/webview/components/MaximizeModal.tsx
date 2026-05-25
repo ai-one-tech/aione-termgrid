@@ -24,6 +24,8 @@ interface MaximizeModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onInput: (data: string) => void;
+  onResize: (cols: number, rows: number) => void;
+  registerTerminalRef: (cellId: string, ref: { write: (data: string) => void; clear: () => void }, action: 'register' | 'unregister') => void;
   t: (key: TranslationKey) => string;
 }
 
@@ -34,6 +36,8 @@ const MaximizeModal: React.FC<MaximizeModalProps> = ({
   open,
   onOpenChange,
   onInput,
+  onResize,
+  registerTerminalRef,
   t,
 }) => {
   const terminalRef = useRef<HTMLDivElement>(null);
@@ -62,6 +66,7 @@ const MaximizeModal: React.FC<MaximizeModalProps> = ({
     // Delay fit to ensure container has dimensions
     requestAnimationFrame(() => {
       fit.fit();
+      onResize(terminal.cols, terminal.rows);
     });
 
     // Handle input
@@ -73,23 +78,38 @@ const MaximizeModal: React.FC<MaximizeModalProps> = ({
     fitAddon.current = fit;
     setSearchAddon(search ?? null);
 
+    // Register terminal ref to receive data
+    const ref = {
+      write: (data: string) => terminal.write(data),
+      clear: () => terminal.clear(),
+    };
+    registerTerminalRef(cell.id, ref, 'register');
+
     return () => {
+      registerTerminalRef(cell.id, ref, 'unregister');
       setSearchAddon(null);
       terminal.dispose();
     };
-  }, [cell, open, theme, onInput]);
+  }, [cell, open, theme, onInput, onResize, registerTerminalRef]);
 
   // Handle resize
   useEffect(() => {
-    if (!open) return;
+    if (!open || !terminalRef.current) return;
 
-    const handleResize = () => {
-      fitAddon.current?.fit();
-    };
+    const resizeObserver = new ResizeObserver(() => {
+      if (fitAddon.current && terminalInstance.current) {
+        requestAnimationFrame(() => {
+          if (fitAddon.current && terminalInstance.current) {
+            fitAddon.current.fit();
+            onResize(terminalInstance.current.cols, terminalInstance.current.rows);
+          }
+        });
+      }
+    });
 
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, [open]);
+    resizeObserver.observe(terminalRef.current);
+    return () => resizeObserver.disconnect();
+  }, [open, onResize]);
 
   // Handle search keyboard shortcut
   useEffect(() => {
@@ -145,8 +165,8 @@ const MaximizeModal: React.FC<MaximizeModalProps> = ({
   return (
     <div data-testid="MaximizeModal">
       <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-screen-2xl w-[90vw] h-[90vh] p-0 overflow-hidden flex flex-col">
-        <DialogHeader className="p-4 border-b flex flex-row items-center justify-between">
+        <DialogContent className="max-w-[96vw] w-[96vw] h-[96vh] p-0 overflow-hidden flex flex-col">
+          <DialogHeader className="px-4 py-2 border-b flex flex-row items-center justify-between space-y-0">
           <DialogTitle className="flex items-center gap-2">
             <span
               className={`w-3 h-3 rounded-full flex-shrink-0 transition-all duration-300 ${
@@ -161,15 +181,17 @@ const MaximizeModal: React.FC<MaximizeModalProps> = ({
             </span>
           </DialogTitle>
           
-          <Button
-            variant={showSearch ? 'secondary' : 'ghost'}
-            size="icon"
-            className="h-8 w-8"
-            onClick={() => setShowSearch(!showSearch)}
-            title="Search (Ctrl+F)"
-          >
-            <Search className="w-4 h-4" />
-          </Button>
+          <div className="flex items-center gap-2 pr-8">
+            <Button
+              variant={showSearch ? 'secondary' : 'ghost'}
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => setShowSearch(!showSearch)}
+              title="Search (Ctrl+F)"
+            >
+              <Search className="w-4 h-4" />
+            </Button>
+          </div>
         </DialogHeader>
         
         {showSearch && searchAddon && (
@@ -180,7 +202,7 @@ const MaximizeModal: React.FC<MaximizeModalProps> = ({
           />
         )}
         
-        <div ref={terminalRef} className="flex-1 w-full h-full" />
+        <div ref={terminalRef} className="flex-1 w-full h-full bg-background" />
       </DialogContent>
       </Dialog>
     </div>

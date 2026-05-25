@@ -75,7 +75,7 @@ const App: React.FC<AppProps> = ({ vscode }) => {
   const [language, setLanguage] = useState<Language>('zh');
   const [terminalStatuses, setTerminalStatuses] = useState<Record<string, TerminalStatus>>({});
   const terminalData = useRef<Record<string, string>>({});
-  const terminalRefs = useRef<Record<string, { write: (data: string) => void; clear: () => void }>>({});
+  const terminalRefs = useRef<Record<string, Set<{ write: (data: string) => void; clear: () => void }>>>({});
 
   useEffect(() => {
     const syncEditorTheme = () => {
@@ -118,9 +118,10 @@ const App: React.FC<AppProps> = ({ vscode }) => {
             ...terminalData.current,
             [message.payload.cellId]: nextData.slice(-MAX_TERMINAL_BUFFER_LENGTH),
           };
-          // Write data to terminal if ref exists
-          if (terminalRefs.current[message.payload.cellId]) {
-            terminalRefs.current[message.payload.cellId].write(message.payload.data);
+          // Write data to all terminal refs if they exist
+          const refs = terminalRefs.current[message.payload.cellId];
+          if (refs) {
+            refs.forEach(ref => ref.write(message.payload.data));
           }
           break;
         }
@@ -130,7 +131,10 @@ const App: React.FC<AppProps> = ({ vscode }) => {
               ...terminalData.current,
               [message.payload.cellId]: '',
             };
-            terminalRefs.current[message.payload.cellId]?.clear();
+            const refs = terminalRefs.current[message.payload.cellId];
+            if (refs) {
+              refs.forEach(ref => ref.clear());
+            }
           }
           setTerminalStatuses((prev) => ({
             ...prev,
@@ -269,15 +273,24 @@ const App: React.FC<AppProps> = ({ vscode }) => {
   }, [sendMessage]);
 
   // Register terminal ref
-  const registerTerminalRef = useCallback((cellId: string, ref: { write: (data: string) => void; clear: () => void } | null) => {
-    if (ref) {
-      terminalRefs.current[cellId] = ref;
+  const registerTerminalRef = useCallback((cellId: string, ref: { write: (data: string) => void; clear: () => void }, action: 'register' | 'unregister') => {
+    if (action === 'register') {
+      if (!terminalRefs.current[cellId]) {
+        terminalRefs.current[cellId] = new Set();
+      }
+      terminalRefs.current[cellId].add(ref);
       const existingData = terminalData.current[cellId];
       if (existingData) {
         ref.write(existingData);
       }
     } else {
-      delete terminalRefs.current[cellId];
+      const refs = terminalRefs.current[cellId];
+      if (refs) {
+        refs.delete(ref);
+        if (refs.size === 0) {
+          delete terminalRefs.current[cellId];
+        }
+      }
     }
   }, []);
 
@@ -335,6 +348,8 @@ const App: React.FC<AppProps> = ({ vscode }) => {
         open={!!maximizedCell}
         onOpenChange={(open) => !open && setMaximizedCell(null)}
         onInput={(data) => maximizedCell && handleTerminalInput(maximizedCell.id, data)}
+        onResize={(cols, rows) => maximizedCell && handleTerminalResize(maximizedCell.id, cols, rows)}
+        registerTerminalRef={registerTerminalRef}
         t={t}
       />
 

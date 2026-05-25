@@ -14,6 +14,9 @@ interface SharedEditorState {
 // Registry to look up shared state by document file path
 const editorRegistry = new Map<string, SharedEditorState>();
 
+// Track documents currently being saved to skip change events
+const savingDocuments = new Set<string>();
+
 export function getEditorPtyManager(filePath: string): { ptyManager: PtyManager; getConfig: () => TermGridConfig | undefined } | undefined {
   const state = editorRegistry.get(filePath);
   if (!state) return undefined;
@@ -81,6 +84,8 @@ export class TermGridEditorProvider implements vscode.CustomTextEditorProvider {
 
     const changeDocumentSubscription = vscode.workspace.onDidChangeTextDocument(async (e) => {
       if (e.document.uri.toString() === document.uri.toString()) {
+        // Skip change events triggered by our own save operation
+        if (savingDocuments.has(filePath)) return;
         const newConfig = this.parseConfig(document);
         if (newConfig && state) {
           state.config = newConfig;
@@ -331,24 +336,31 @@ export class TermGridEditorProvider implements vscode.CustomTextEditorProvider {
     document: vscode.TextDocument,
     config: TermGridConfig
   ): Promise<void> {
-    const edit = new vscode.WorkspaceEdit();
-    const yaml = YAML.stringify(config, {
-      sortMapEntries: true,
-      indent: 2,
-    });
-
-    edit.replace(
-      document.uri,
-      new vscode.Range(0, 0, document.lineCount, 0),
-      yaml
-    );
-    
-    const success = await vscode.workspace.applyEdit(edit);
-    if (success) {
-      this.broadcast(document.uri.fsPath, {
-        type: 'config:saved',
-        payload: { config },
+    const filePath = document.uri.fsPath;
+    savingDocuments.add(filePath);
+    try {
+      const edit = new vscode.WorkspaceEdit();
+      const yaml = YAML.stringify(config, {
+        sortMapEntries: true,
+        indent: 2,
       });
+
+      edit.replace(
+        document.uri,
+        new vscode.Range(0, 0, document.lineCount, 0),
+        yaml
+      );
+
+      const success = await vscode.workspace.applyEdit(edit);
+      if (success) {
+        await document.save();
+        this.broadcast(filePath, {
+          type: 'config:saved',
+          payload: { config },
+        });
+      }
+    } finally {
+      savingDocuments.delete(filePath);
     }
   }
 

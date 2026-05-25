@@ -19,7 +19,7 @@ interface TerminalCellProps {
   onMaximize: () => void;
   onInput: (data: string) => void;
   onResize: (cols: number, rows: number) => void;
-  registerTerminalRef: (cellId: string, ref: { write: (data: string) => void; clear: () => void } | null) => void;
+  registerTerminalRef: (cellId: string, ref: { write: (data: string) => void; clear: () => void }, action: 'register' | 'unregister') => void;
   t: (key: TranslationKey) => string;
 }
 
@@ -83,30 +83,38 @@ const TerminalCellComponent: React.FC<TerminalCellProps> = ({
     fitAddon.current = fit;
 
     // Register terminal ref
-    registerTerminalRef(cell.id, {
+    const ref = {
       write: (data: string) => terminal.write(data),
       clear: () => terminal.clear(),
-    });
+    };
+    registerTerminalRef(cell.id, ref, 'register');
 
     return () => {
-      registerTerminalRef(cell.id, null);
+      registerTerminalRef(cell.id, ref, 'unregister');
       terminal.dispose();
     };
   }, [theme, cell.id, registerTerminalRef]);
 
   // Handle resize
   useEffect(() => {
-    const handleResize = () => {
-      if (fitAddon.current && terminalInstance.current) {
-        fitAddon.current.fit();
-        const { cols, rows } = terminalInstance.current;
-        onResize(cols, rows);
-      }
-    };
+    if (!terminalRef.current) return;
 
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, [onResize]);
+    const resizeObserver = new ResizeObserver(() => {
+      if (fitAddon.current && terminalInstance.current) {
+        // Use requestAnimationFrame to ensure the DOM has updated before fitting
+        requestAnimationFrame(() => {
+          if (fitAddon.current && terminalInstance.current) {
+            fitAddon.current.fit();
+            const { cols, rows } = terminalInstance.current;
+            onResizeRef.current(cols, rows);
+          }
+        });
+      }
+    });
+
+    resizeObserver.observe(terminalRef.current);
+    return () => resizeObserver.disconnect();
+  }, []);
 
   // Don't render if cell is hidden (part of a merged area)
   if ((cell as TerminalCellType & { hidden?: boolean }).hidden) {

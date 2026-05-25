@@ -1,4 +1,5 @@
 import * as React from "react"
+import { X } from "lucide-react"
 import { cn } from "../../lib/utils"
 
 const Dialog = React.forwardRef<
@@ -8,24 +9,23 @@ const Dialog = React.forwardRef<
   if (!open) return null
 
   return (
-    <div data-testid="dialog" className="fixed inset-0 z-50" ref={ref} {...props}>
+    <div data-testid="dialog" className="fixed inset-0 z-50 flex items-center justify-center" ref={ref} {...props}>
       <div
         className="fixed inset-0 bg-black/80"
         onClick={() => onOpenChange?.(false)}
       />
-      <div className={cn(
-        "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg",
-        className
-      )}
-        style={{
-          backgroundColor: 'var(--vscode-editor-background, #1e1e1e)',
-          borderColor: 'var(--vscode-panel-border, #3c3c3c)',
-          color: 'var(--vscode-editor-foreground, #cccccc)',
-          padding: '1.5rem',
-        }}
-      >
-        {children}
-      </div>
+      {/* 
+         We use a context or just pass the onOpenChange to children if we were using a more complex system,
+         but for now we'll just handle the close button in DialogContent by expecting it to be passed 
+         or by using a simpler approach. 
+         Actually, let's just make DialogContent take onOpenChange too for simplicity in this refactor.
+      */}
+      {React.Children.map(children, child => {
+        if (React.isValidElement(child)) {
+          return React.cloneElement(child as React.ReactElement<any>, { onOpenChange })
+        }
+        return child
+      })}
     </div>
   )
 })
@@ -33,9 +33,30 @@ Dialog.displayName = "Dialog"
 
 const DialogContent = React.forwardRef<
   HTMLDivElement,
-  React.HTMLAttributes<HTMLDivElement>
->(({ className, ...props }, ref) => (
-  <div ref={ref} className={className} {...props} />
+  React.HTMLAttributes<HTMLDivElement> & { onOpenChange?: (open: boolean) => void }
+>(({ className, children, onOpenChange, ...props }, ref) => (
+  <div
+    ref={ref}
+    className={cn(
+      "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border shadow-lg duration-200 sm:rounded-lg p-6",
+      className
+    )}
+    style={{
+      backgroundColor: 'var(--vscode-editor-background, #1e1e1e)',
+      borderColor: 'var(--vscode-panel-border, #3c3c3c)',
+      color: 'var(--vscode-editor-foreground, #cccccc)',
+    }}
+    {...props}
+  >
+    {children}
+    <button
+      onClick={() => onOpenChange?.(false)}
+      className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground"
+    >
+      <X className="h-4 w-4" />
+      <span className="sr-only">Close</span>
+    </button>
+  </div>
 ))
 DialogContent.displayName = "DialogContent"
 

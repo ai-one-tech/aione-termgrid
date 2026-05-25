@@ -12,7 +12,7 @@ interface TerminalGridProps {
   onMaximize: (cell: TerminalCell) => void;
   onInput: (cellId: string, data: string) => void;
   onResize: (cellId: string, cols: number, rows: number) => void;
-  registerTerminalRef: (cellId: string, ref: { write: (data: string) => void; clear: () => void } | null) => void;
+  registerTerminalRef: (cellId: string, ref: { write: (data: string) => void; clear: () => void }, action: 'register' | 'unregister') => void;
   t: (key: TranslationKey) => string;
 }
 
@@ -26,37 +26,42 @@ function buildCellGrid(config: TermGridConfig): (string | null)[][] {
     Array.from({ length: layout.cols }, () => null)
   );
 
-  let cellIndex = 0;
+  // 1. Fill grid based on position-based mapping (index = row * cols + col)
+  // This ensures consistency with SettingsPanel where each cell has a fixed position
+  for (let row = 0; row < layout.rows; row++) {
+    for (let col = 0; col < layout.cols; col++) {
+      const index = row * layout.cols + col;
+      if (index < cells.length) {
+        // If this slot is already filled by a previous cell's span, skip it
+        if (grid[row][col] !== null) continue;
 
-  // Place merged cells first
-  if (mergedCells && mergedCells.length > 0) {
-    mergedCells.forEach((merged) => {
-      if (cellIndex >= cells.length) return;
-      const cell = cells[cellIndex];
-      for (let r = merged.startRow; r <= merged.endRow && r < layout.rows; r++) {
-        for (let c = merged.startCol; c <= merged.endCol && c < layout.cols; c++) {
-          grid[r][c] = cell.id;
+        const cell = cells[index];
+        const colSpan = Math.min(cell.colSpan || 1, layout.cols - col);
+        const rowSpan = Math.min(cell.rowSpan || 1, layout.rows - row);
+
+        for (let r = row; r < row + rowSpan && r < layout.rows; r++) {
+          for (let c = col; c < col + colSpan && c < layout.cols; c++) {
+            grid[r][c] = cell.id;
+          }
         }
       }
-      cellIndex++;
-    });
+    }
   }
 
-  // Place remaining cells
-  for (let row = 0; row < layout.rows && cellIndex < cells.length; row++) {
-    for (let col = 0; col < layout.cols && cellIndex < cells.length; col++) {
-      if (grid[row][col] !== null) continue;
-      const cell = cells[cellIndex];
-      const colSpan = Math.min(cell.colSpan || 1, layout.cols - col);
-      const rowSpan = Math.min(cell.rowSpan || 1, layout.rows - row);
-
-      for (let r = row; r < row + rowSpan && r < layout.rows; r++) {
-        for (let c = col; c < col + colSpan && c < layout.cols; c++) {
-          grid[r][c] = cell.id;
+  // 2. Overwrite with explicit mergedCells
+  // This matches SettingsPanel's behavior where mergedCells cover specific grid areas
+  if (mergedCells && mergedCells.length > 0) {
+    mergedCells.forEach((merged) => {
+      const startIndex = merged.startRow * layout.cols + merged.startCol;
+      const cell = cells[startIndex];
+      if (cell) {
+        for (let r = merged.startRow; r <= merged.endRow && r < layout.rows; r++) {
+          for (let c = merged.startCol; c <= merged.endCol && c < layout.cols; c++) {
+            grid[r][c] = cell.id;
+          }
         }
       }
-      cellIndex++;
-    }
+    });
   }
 
   return grid;
@@ -193,8 +198,10 @@ const TerminalGrid: React.FC<TerminalGridProps> = ({
     const handleMouseMove = (e: MouseEvent) => {
       if (colDrag) {
         const containerWidth = containerRef.current?.clientWidth || 1;
+        const totalGap = (colSizes.length - 1) * 5;
+        const netWidth = containerWidth - 8 - totalGap;
         const deltaPx = e.clientX - colDrag.startX;
-        const deltaPercent = (deltaPx / containerWidth) * 100;
+        const deltaPercent = (deltaPx / netWidth) * 100;
 
         const newSizes = [...colDrag.startSizes];
         const leftSize = newSizes[colDrag.index] + deltaPercent;
@@ -209,8 +216,10 @@ const TerminalGrid: React.FC<TerminalGridProps> = ({
 
       if (rowDrag) {
         const containerHeight = containerRef.current?.clientHeight || 1;
+        const totalGap = (rowSizes.length - 1) * 5;
+        const netHeight = containerHeight - 8 - totalGap;
         const deltaPx = e.clientY - rowDrag.startY;
-        const deltaPercent = (deltaPx / containerHeight) * 100;
+        const deltaPercent = (deltaPx / netHeight) * 100;
 
         const newSizes = [...rowDrag.startSizes];
         const topSize = newSizes[rowDrag.index] + deltaPercent;
@@ -392,20 +401,22 @@ const TerminalGrid: React.FC<TerminalGridProps> = ({
         if (index >= colSizes.length - 1) return null;
         // Calculate position: sum of previous column sizes
         const leftPercent = colSizes.slice(0, index + 1).reduce((a, b) => a + b, 0);
+        const totalGap = (colSizes.length - 1) * 5;
+        const totalReserved = 8 + totalGap; // 4px padding each side
         return (
           <div
             key={`col-resizer-${index}`}
             className="grid-resizer-col"
-            style={{
-              position: 'absolute',
-              left: `${leftPercent}%`,
-              top: 0,
-              bottom: 0,
-              width: '4px',
-              transform: 'translateX(-50%)',
-              cursor: 'col-resize',
-              zIndex: 10,
-            }}
+              style={{
+                position: 'absolute',
+                left: `calc(4px + (${leftPercent / 100} * (100% - ${totalReserved}px)) + ${index * 5 + 2.5}px)`,
+                top: 0,
+                bottom: 0,
+                width: '5px',
+                transform: 'translateX(-50%)',
+                cursor: 'col-resize',
+                zIndex: 10,
+              }}
             onMouseDown={(e) => handleColResizeStart(index, e)}
           />
         );
@@ -415,16 +426,18 @@ const TerminalGrid: React.FC<TerminalGridProps> = ({
       {rowSizes.length > 1 && rowSizes.map((_, index) => {
         if (index >= rowSizes.length - 1) return null;
         const topPercent = rowSizes.slice(0, index + 1).reduce((a, b) => a + b, 0);
+        const totalGap = (rowSizes.length - 1) * 5;
+        const totalReserved = 8 + totalGap; // 4px padding each side
         return (
           <div
             key={`row-resizer-${index}`}
             className="grid-resizer-row"
             style={{
               position: 'absolute',
-              top: `${topPercent}%`,
+              top: `calc(4px + (${topPercent / 100} * (100% - ${totalReserved}px)) + ${index * 5 + 2.5}px)`,
               left: 0,
               right: 0,
-              height: '4px',
+              height: '5px',
               transform: 'translateY(-50%)',
               cursor: 'row-resize',
               zIndex: 10,

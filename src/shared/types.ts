@@ -216,6 +216,5 @@ export const DEFAULT_CONFIG: TermGridConfig = {
     },
   ],
   mergedCells: [],
-  theme: 'dark',
   language: 'zh',
 };
