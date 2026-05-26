@@ -2,7 +2,7 @@
   "name": "termgrid-aione",
   "displayName": "TermGrid AiOne",
   "description": "以网格布局批量管理多个终端，支持单元格合并、主题定制、多语言界面 Batch manage multiple terminals in a grid layout with support for merging cells, theme customization, and multi-language interface",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "publisher": "AiOne",
   "engines": {
     "vscode": "^1.85.0"
