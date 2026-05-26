@@ -4,7 +4,12 @@ on:
   push:
     tags:
       - 'v*' # 当推送以 v 开头的标签时触发，例如 v1.0.0
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: 'Reason for manual release (optional)'
+        required: false
+        default: 'Manual release'
 
 permissions:
   contents: write
