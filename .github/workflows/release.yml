@@ -3,13 +3,12 @@ name: Release
 on:
   push:
     tags:
-      - 'v*' # 当推送以 v 开头的标签时触发，例如 v1.0.0
+      - 'v*'
   workflow_dispatch:
     inputs:
-      reason:
-        description: 'Reason for manual release (optional)'
+      tag:
+        description: 'Manual release tag (optional, defaults to package.json version)'
         required: false
-        default: 'Manual release'
 
 permissions:
   contents: write
@@ -24,7 +23,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # 获取完整历史以便处理标签
+          fetch-depth: 0
 
       - name: Install Node.js
         uses: actions/setup-node@v4
@@ -38,6 +37,8 @@ jobs:
           PACKAGE_VERSION=$(jq -r .version package.json)
           if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
             FINAL_TAG="${{ github.ref_name }}"
+          elif [ -n "${{ github.event.inputs.tag }}" ]; then
+            FINAL_TAG="${{ github.event.inputs.tag }}"
           else
             FINAL_TAG="v$PACKAGE_VERSION"
           fi
@@ -79,4 +80,3 @@ jobs:
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-KEN }}
