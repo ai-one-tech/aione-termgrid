@@ -7,9 +7,8 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Tag to release (e.g. v1.0.0)'
-        required: false
-        default: ''
+        description: 'Tag to release (MUST start with v, e.g. v1.0.0)'
+        required: true
 
 permissions:
   contents: write
@@ -49,7 +48,7 @@ jobs:
           VERSION=$(jq -r .version package.json)
           # 将 package.json 中的 publisher 替换为 AiOneTech
           jq '.publisher = "AiOneTech"' package.json > package.json.tmp && mv package.json.tmp package.json
-          # 清理上次构建产物，让 vsce 重新生成针对新 publisher 可能需要的构建（如果有的话）
+          # 清理上次构建产物
           rm -rf out dist
           npx vsce package --out termgrid-ovsx-$VERSION.vsix
           npx ovsx publish termgrid-ovsx-$VERSION.vsix -p $OVSX_PAT
@@ -58,6 +57,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: success()
         with:
+          tag_name: ${{ github.event.inputs.tag || github.ref_name }}
           files: "*.vsix"
           generate_release_notes: true
           draft: false
