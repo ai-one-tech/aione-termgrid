@@ -4,6 +4,12 @@ on:
   push:
     tags:
       - 'v*' # 当推送以 v 开头的标签时触发，例如 v1.0.0
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to release (e.g. v1.0.0)'
+        required: false
+        default: ''
 
 permissions:
   contents: write
@@ -27,20 +33,13 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build
-        run: |
-          rm -rf out dist
-          npm run vscode:prepublish
-          # 验证构建产物是否存在
-          ls -R out/
-          ls -R dist/
-
       - name: Package and Publish to VS Code Marketplace (AiOne)
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
         run: |
           VERSION=$(jq -r .version package.json)
-          npx vsce package --no-prepublish --out termgrid-vsce-$VERSION.vsix
+          rm -rf out dist
+          npx vsce package --out termgrid-vsce-$VERSION.vsix
           npx vsce publish --packagePath termgrid-vsce-$VERSION.vsix -p $VSCE_PAT
 
       - name: Package and Publish to Open VSX (AiOneTech)
@@ -50,8 +49,9 @@ jobs:
           VERSION=$(jq -r .version package.json)
           # 将 package.json 中的 publisher 替换为 AiOneTech
           jq '.publisher = "AiOneTech"' package.json > package.json.tmp && mv package.json.tmp package.json
-          # 使用 --no-prepublish 直接打包已编译好的代码
-          npx vsce package --no-prepublish --out termgrid-ovsx-$VERSION.vsix
+          # 清理上次构建产物，让 vsce 重新生成针对新 publisher 可能需要的构建（如果有的话）
+          rm -rf out dist
+          npx vsce package --out termgrid-ovsx-$VERSION.vsix
           npx ovsx publish termgrid-ovsx-$VERSION.vsix -p $OVSX_PAT
 
       - name: Create GitHub Release
