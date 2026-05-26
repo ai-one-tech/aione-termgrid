@@ -21,6 +21,11 @@ interface SettingsPanelProps {
   onOpenChange: (open: boolean) => void;
   onSave: (config: TermGridConfig) => void;
   onChangeLanguage: (language: Language) => void;
+  onTest: (cell: TerminalCell) => void;
+  onStopTest: () => void;
+  testOutput: string;
+  testExitCode: number | null;
+  registerTerminalRef: (cellId: string, ref: { write: (data: string) => void; clear: () => void }, action: 'register' | 'unregister') => void;
   t: (key: TranslationKey) => string;
 }
 
@@ -31,6 +36,11 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
   onOpenChange,
   onSave,
   onChangeLanguage,
+  onTest,
+  onStopTest,
+  testOutput,
+  testExitCode,
+  registerTerminalRef,
   t,
 }) => {
   const [localConfig, setLocalConfig] = useState<TermGridConfig>(config);
@@ -325,8 +335,8 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
 
   return (
     <div data-testid="SettingsPanel">
-      <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetContent className="w-full sm:max-w-lg p-0 flex flex-col h-full">
+      <Sheet open={open} onOpenChange={onOpenChange} className="sm:max-w-lg">
+        <SheetContent className="w-full p-0 flex flex-col h-full">
           {/* Fixed header */}
           <SheetHeader className="p-6 pt-1 pb-4 shrink-0">
             <SheetTitle className="text-xl font-semibold">{t('gridSettings')}</SheetTitle>
@@ -479,7 +489,10 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
                             </span>
                           ) : (
                             <>
-                              <span className="text-xs font-medium text-[var(--vscode-editor-foreground,#cccccc)] truncate w-full text-center">
+                              <span 
+                                className="text-xs font-medium text-[var(--vscode-editor-foreground,#cccccc)] truncate w-full text-center px-1"
+                                title={cellData?.title || `Terminal ${cellIndex}`}
+                              >
                                 {cellData?.title || `Terminal ${cellIndex}`}
                               </span>
                               <span className="text-[10px] text-[var(--vscode-descriptionForeground,#858585)]">
@@ -639,6 +652,11 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
         open={configDrawerOpen}
         onOpenChange={setConfigDrawerOpen}
         onSave={updateCell}
+        onTest={onTest}
+        onStopTest={onStopTest}
+        testOutput={testOutput}
+        testExitCode={testExitCode}
+        registerTerminalRef={registerTerminalRef}
         t={t}
       />
     </div>

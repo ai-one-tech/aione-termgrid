@@ -78,6 +78,8 @@ const App: React.FC<AppProps> = ({ vscode }) => {
   const [theme, setTheme] = useState<Theme>(() => getEditorThemeKind());
   const [language, setLanguage] = useState<Language>('zh');
   const [terminalStatuses, setTerminalStatuses] = useState<Record<string, TerminalStatus>>({});
+  const [testOutput, setTestOutput] = useState('');
+  const [testExitCode, setTestExitCode] = useState<number | null>(null);
   const terminalData = useRef<Record<string, string>>({});
   const terminalRefs = useRef<Record<string, Set<{ write: (data: string) => void; clear: () => void }>>>({});
 
@@ -154,6 +156,17 @@ const App: React.FC<AppProps> = ({ vscode }) => {
             ...prev,
             [message.payload.cellId]: 'stopped',
           }));
+          break;
+        case 'terminal:testData': {
+          const refs = terminalRefs.current['test'];
+          if (refs) {
+            refs.forEach(ref => ref.write(message.payload.data));
+          }
+          setTestOutput((prev) => (prev + message.payload.data).slice(-MAX_TERMINAL_BUFFER_LENGTH));
+          break;
+        }
+        case 'terminal:testExit':
+          setTestExitCode(message.payload.code);
           break;
       }
     };
@@ -280,6 +293,23 @@ const App: React.FC<AppProps> = ({ vscode }) => {
     });
   }, [sendMessage]);
 
+  // Handle terminal test
+  const handleTerminalTest = useCallback((cell: TerminalCell) => {
+    setTestOutput('');
+    setTestExitCode(null);
+    sendMessage({
+      type: 'terminal:testStart',
+      payload: { cell },
+    });
+  }, [sendMessage]);
+
+  const handleTerminalTestStop = useCallback(() => {
+    sendMessage({
+      type: 'terminal:testStop',
+      payload: {},
+    });
+  }, [sendMessage]);
+
   // Register terminal ref
   const registerTerminalRef = useCallback((cellId: string, ref: { write: (data: string) => void; clear: () => void }, action: 'register' | 'unregister') => {
     if (action === 'register') {
@@ -346,6 +376,11 @@ const App: React.FC<AppProps> = ({ vscode }) => {
         onOpenChange={setShowSettings}
         onSave={handleSave}
         onChangeLanguage={changeLanguage}
+        onTest={handleTerminalTest}
+        onStopTest={handleTerminalTestStop}
+        testOutput={testOutput}
+        testExitCode={testExitCode}
+        registerTerminalRef={registerTerminalRef}
         t={t}
       />
 

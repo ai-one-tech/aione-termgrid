@@ -1,4 +1,5 @@
 import * as os from 'os';
+import * as path from 'path';
 import * as child_process from 'child_process';
 import * as fs from 'fs';
 import type * as Pty from 'node-pty';
@@ -62,16 +63,138 @@ export interface PtyManagerOptions {
 }
 
 /**
+ * Load and parse environment variables from files.
+ * Format is k=v per line.
+ */
+function loadEnvFiles(files: string[], workspaceRoot?: string): Record<string, string> {
+  const env: Record<string, string> = {};
+  for (const file of files) {
+    let filePath = file.trim();
+    if (!filePath) continue;
+
+    if (!path.isAbsolute(filePath) && workspaceRoot) {
+      filePath = path.join(workspaceRoot, filePath);
+    }
+
+    if (fs.existsSync(filePath)) {
+      try {
+        const content = fs.readFileSync(filePath, 'utf8');
+        const lines = content.split(/\r?\n/);
+        for (const line of lines) {
+          const trimmedLine = line.trim();
+          if (!trimmedLine || trimmedLine.startsWith('#')) continue;
+          
+          const index = trimmedLine.indexOf('=');
+          if (index > 0) {
+            const key = trimmedLine.substring(0, index).trim();
+            const value = trimmedLine.substring(index + 1).trim();
+            if (key) {
+              env[key] = value;
+            }
+          }
+        }
+      } catch (err) {
+        console.error(`[TermGrid] Failed to read env file: ${filePath}`, err);
+      }
+    } else {
+      console.warn(`[TermGrid] Env file not found: ${filePath}`);
+    }
+  }
+  return env;
+}
+
+/**
  * Manages node-pty processes lifecycle for all terminal cells.
  * Handles creation, input, resize, and termination of PTY processes.
  */
 export class PtyManager {
   private processes: Map<string, PtyProcess> = new Map();
+  private testProcess: PtyProcess | null = null;
   private executionQueue: ExecutionQueue = new ExecutionQueue();
   private options: PtyManagerOptions;
 
   constructor(options: PtyManagerOptions) {
     this.options = options;
+  }
+
+  /**
+   * Run a test terminal cell
+   */
+  async testCell(cell: TerminalCell, onTestData: (data: string) => void, onTestExit: (code: number) => void): Promise<void> {
+    if (this.testProcess) {
+      await this.stopTest();
+    }
+
+    try {
+      const shellCmd = getDefaultShell();
+      const initialCommand = resolveCommandText(cell.command ?? { default: '' });
+      let cwd = resolveCwd(cell.cwd, this.options.workspaceRoot);
+      const shell = shellCmd.shell.trim();
+
+      if (!fs.existsSync(cwd)) {
+        cwd = this.options.workspaceRoot || os.tmpdir();
+      }
+
+      const fileEnv = loadEnvFiles(cell.envFiles || [], this.options.workspaceRoot);
+      const mergedEnv = {
+        ...process.env,
+        ...fileEnv,
+        ...cell.env,
+      } as { [key: string]: string };
+
+      const ptyProcess = getPty().spawn(shell, shellCmd.args, {
+        name: 'xterm-color',
+        cwd,
+        env: mergedEnv,
+        cols: 80,
+        rows: 24,
+        ...(os.platform() === 'win32' ? { useConpty: false } : {}),
+      });
+
+      this.testProcess = {
+        id: 'test',
+        pty: ptyProcess,
+        cell,
+        status: 'running',
+        startTime: Date.now(),
+        buffer: [],
+      };
+
+      ptyProcess.onData((data: string) => {
+        onTestData(data);
+      });
+
+      ptyProcess.onExit(({ exitCode }: { exitCode: number }) => {
+        this.testProcess = null;
+        onTestExit(exitCode);
+      });
+
+      if (initialCommand) {
+        setTimeout(() => {
+          if (this.testProcess) {
+            this.testProcess.pty.write(`${initialCommand}\r`);
+          }
+        }, 500);
+      }
+    } catch (error) {
+      console.error(`[TermGrid] Failed to start test terminal:`, error);
+      onTestExit(-1);
+      throw error;
+    }
+  }
+
+  /**
+   * Stop the test process
+   */
+  async stopTest(): Promise<void> {
+    if (!this.testProcess) return;
+    try {
+      killProcessTree(this.testProcess.pty.pid);
+      this.testProcess.pty.kill();
+      this.testProcess = null;
+    } catch (error) {
+      console.error(`[TermGrid] stopTest failed`, error);
+    }
   }
 
   /**
@@ -117,13 +240,21 @@ export class PtyManager {
         throw new Error(`Resolved empty shell for terminal ${cell.id}`);
       }
 
+      // Merge environment variables:
+      // 1. Process environment
+      // 2. Env files (lower priority than manual env)
+      // 3. Manual env
+      const fileEnv = loadEnvFiles(cell.envFiles || [], this.options.workspaceRoot);
+      const mergedEnv = {
+        ...process.env,
+        ...fileEnv,
+        ...cell.env,
+      } as { [key: string]: string };
+
       const ptyOptions: Pty.IPtyForkOptions | Pty.IWindowsPtyForkOptions = {
         name: 'xterm-color',
         cwd,
-        env: {
-          ...process.env,
-          ...cell.env,
-        } as { [key: string]: string },
+        env: mergedEnv,
         cols: 80,
         rows: 24,
         ...(os.platform() === 'win32' ? { useConpty: false } : {}),

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { TerminalCell } from '../../shared/schema';
 import { TranslationKey } from '../../shared/translations';
 import { BORDER_COLORS } from '../../shared/constants';
+import { cn } from '../lib/utils';
 import {
   Sheet,
   SheetContent,
@@ -12,12 +13,55 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
+import TerminalTestModal from './TerminalTestModal';
+
+// Auto-resizing Textarea component
+const AutoResizeTextarea: React.FC<React.TextareaHTMLAttributes<HTMLTextAreaElement>> = (props) => {
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const resize = () => {
+    const textarea = textareaRef.current;
+    if (textarea) {
+      textarea.style.height = 'auto';
+      textarea.style.height = `${textarea.scrollHeight}px`;
+    }
+  };
+
+  useEffect(() => {
+    resize();
+  }, [props.value, props.placeholder]);
+
+  return (
+    <Textarea
+      {...props}
+      ref={textareaRef}
+      onInput={(e) => {
+        resize();
+        props.onInput?.(e);
+      }}
+      className={cn("resize-none overflow-hidden min-h-[unset]", props.className)}
+    />
+  );
+};
+
+// Label with optional required asterisk
+const RequiredLabel: React.FC<{ children: React.ReactNode; required?: boolean; className?: string }> = ({ children, required, className }) => (
+  <Label className={className}>
+    {children}
+    {required && <span className="text-red-500 ml-1 font-bold">*</span>}
+  </Label>
+);
 
 interface CellConfigDrawerProps {
   cell: TerminalCell | undefined;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSave: (cellId: string, updates: Partial<TerminalCell>) => void;
+  onTest: (cell: TerminalCell) => void;
+  onStopTest: () => void;
+  testOutput: string;
+  testExitCode: number | null;
+  registerTerminalRef: (cellId: string, ref: { write: (data: string) => void; clear: () => void }, action: 'register' | 'unregister') => void;
   t: (key: TranslationKey) => string;
 }
 
@@ -78,10 +122,18 @@ const CellConfigDrawer: React.FC<CellConfigDrawerProps> = ({
   open,
   onOpenChange,
   onSave,
+  onTest,
+  onStopTest,
+  testOutput,
+  testExitCode,
+  registerTerminalRef,
   t,
 }) => {
   const [localCell, setLocalCell] = useState<TerminalCell | undefined>(cell);
+  const [envFilesText, setEnvFilesText] = useState('');
+  const [manualEnvText, setManualEnvText] = useState('');
   const [commandError, setCommandError] = useState(false);
+  const [testModalOpen, setTestModalOpen] = useState(false);
   const isFirstRender = useRef(true);
 
   useEffect(() => {
@@ -91,6 +143,14 @@ const CellConfigDrawer: React.FC<CellConfigDrawerProps> = ({
     }
     setLocalCell(cell);
     setCommandError(false);
+
+    if (cell) {
+      setEnvFilesText((cell.envFiles || []).join('\n'));
+      const envLines = Object.entries(cell.env || {})
+        .map(([k, v]) => `${k}=${v}`)
+        .join('\n');
+      setManualEnvText(envLines);
+    }
   }, [cell]);
 
   if (!localCell) return null;
@@ -121,22 +181,38 @@ const CellConfigDrawer: React.FC<CellConfigDrawerProps> = ({
     handleUpdate({ command: { ...command, [platform]: value } });
   };
 
-  // Check if at least one command is filled
+  // Check if default command is filled
   const hasValidCommand = (): boolean => {
-    if (!localCell.command) return false;
-    return Object.values(localCell.command).some(
-      (cmd) => cmd && cmd.trim() !== ''
-    );
+    return !!(localCell.command?.default && localCell.command.default.trim() !== '');
   };
 
   const handleSave = () => {
     if (!localCell) return;
 
-    // Validate at least one command is filled
+    // Validate at least default command is filled
     if (!hasValidCommand()) {
       setCommandError(true);
       return;
     }
+
+    // Parse env files
+    const envFiles = envFilesText
+      .split('\n')
+      .map((line) => line.trim())
+      .filter((line) => line !== '');
+
+    // Parse manual env
+    const env: Record<string, string> = {};
+    manualEnvText.split('\n').forEach((line) => {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#')) return;
+      const index = trimmed.indexOf('=');
+      if (index > 0) {
+        const key = trimmed.substring(0, index).trim();
+        const value = trimmed.substring(index + 1).trim();
+        if (key) env[key] = value;
+      }
+    });
 
     setCommandError(false);
     const updates: Partial<TerminalCell> = {
@@ -146,25 +222,59 @@ const CellConfigDrawer: React.FC<CellConfigDrawerProps> = ({
       order: localCell.order,
       delay: localCell.delay,
       borderColor: localCell.borderColor,
+      envFiles,
+      env,
     };
     onSave(localCell.id, updates);
     onOpenChange(false);
   };
 
+  const handleTest = () => {
+    if (!localCell) return;
+
+    // Build temporary cell object with current values
+    const envFiles = envFilesText
+      .split('\n')
+      .map((line) => line.trim())
+      .filter((line) => line !== '');
+
+    const env: Record<string, string> = {};
+    manualEnvText.split('\n').forEach((line) => {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#')) return;
+      const index = trimmed.indexOf('=');
+      if (index > 0) {
+        const key = trimmed.substring(0, index).trim();
+        const value = trimmed.substring(index + 1).trim();
+        if (key) env[key] = value;
+      }
+    });
+
+    const testCellData: TerminalCell = {
+      ...localCell,
+      envFiles,
+      env,
+    };
+
+    onTest(testCellData);
+    setTestModalOpen(true);
+  };
+
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full sm:max-w-md p-0 flex flex-col h-full">
+    <>
+      <Sheet open={open} onOpenChange={onOpenChange} className="sm:max-w-md">
+      <SheetContent className="w-full p-0 flex flex-col h-full">
         <SheetHeader className="p-6 pb-4 shrink-0 border-b border-[var(--vscode-panel-border,#3c3c3c)]">
           <SheetTitle className="text-lg font-semibold flex items-center gap-2">
             <span className="text-[var(--vscode-descriptionForeground,#858585)] font-mono text-sm">#{cellIndex}</span>
-            <span className="truncate">{localCell.title}</span>
+            <span className="truncate" title={localCell.title}>{localCell.title}</span>
           </SheetTitle>
         </SheetHeader>
 
         <div className="flex-1 overflow-y-auto px-6 py-4 space-y-5">
           {/* Title */}
           <div className="space-y-2">
-            <Label className="text-[var(--vscode-editor-foreground,#cccccc)]">{t('title')}</Label>
+            <RequiredLabel required className="text-[var(--vscode-editor-foreground,#cccccc)]">{t('title')}</RequiredLabel>
             <Input
               value={localCell.title}
               onChange={(e) => handleUpdate({ title: e.target.value })}
@@ -174,7 +284,7 @@ const CellConfigDrawer: React.FC<CellConfigDrawerProps> = ({
 
           {/* Working Directory */}
           <div className="space-y-2">
-            <Label className="text-[var(--vscode-editor-foreground,#cccccc)]">{t('workingDirectory')}</Label>
+            <RequiredLabel required className="text-[var(--vscode-editor-foreground,#cccccc)]">{t('workingDirectory')}</RequiredLabel>
             <Input
               value={localCell.cwd}
               onChange={(e) => handleUpdate({ cwd: e.target.value })}
@@ -192,14 +302,15 @@ const CellConfigDrawer: React.FC<CellConfigDrawerProps> = ({
 
               return (
                 <div key={p.key} className="space-y-1">
-                  <span className={`text-xs px-2 py-0.5 rounded ${
+                  <span className={`text-xs px-2 py-0.5 rounded flex items-center w-fit ${
                     isDefault
                       ? 'bg-[var(--vscode-focusBorder,#007fd4)] text-white'
                       : 'bg-[var(--vscode-panel-border,#3c3c3c)] text-[var(--vscode-descriptionForeground,#858585)]'
                   }`}>
                     {t(p.labelKey)}
+                    {isDefault && <span className="text-red-400 ml-1 font-bold text-[10px]">*</span>}
                   </span>
-                  <Textarea
+                  <AutoResizeTextarea
                     value={value}
                     placeholder={placeholder}
                     onChange={(e) => handleCommandChange(p.key, e.target.value)}
@@ -209,6 +320,30 @@ const CellConfigDrawer: React.FC<CellConfigDrawerProps> = ({
                 </div>
               );
             })}
+          </div>
+
+          {/* Environment Variables */}
+          <div className="space-y-4 pt-2 border-t border-[var(--vscode-panel-border,#3c3c3c)]">
+            <div className="space-y-2">
+              <Label className="text-[var(--vscode-editor-foreground,#cccccc)]">{t('envFiles')}</Label>
+              <AutoResizeTextarea
+                value={envFilesText}
+                placeholder={t('envFilesPlaceholder')}
+                onChange={(e) => setEnvFilesText(e.target.value)}
+                rows={2}
+                className="bg-[var(--vscode-input-background,#3c3c3c)] border-[var(--vscode-input-border,#3c3c3c)] text-[var(--vscode-editor-foreground,#cccccc)]"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-[var(--vscode-editor-foreground,#cccccc)]">{t('manualEnv')}</Label>
+              <AutoResizeTextarea
+                value={manualEnvText}
+                placeholder={t('manualEnvPlaceholder')}
+                onChange={(e) => setManualEnvText(e.target.value)}
+                rows={3}
+                className="bg-[var(--vscode-input-background,#3c3c3c)] border-[var(--vscode-input-border,#3c3c3c)] text-[var(--vscode-editor-foreground,#cccccc)] font-mono text-xs"
+              />
+            </div>
           </div>
 
           {/* Order and Delay */}
@@ -284,13 +419,25 @@ const CellConfigDrawer: React.FC<CellConfigDrawerProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="p-6 pt-4 shrink-0 border-t border-[var(--vscode-panel-border,#3c3c3c)]">
-          {commandError && (
-            <div className="mb-3 text-sm text-red-400">
-              {t('commandRequired')}
-            </div>
-          )}
-          <div className="flex justify-end gap-2">
+        <div className="p-6 pt-4 shrink-0 border-t border-[var(--vscode-panel-border,#3c3c3c)] flex items-center justify-between">
+          <div className="flex-1">
+            <Button
+              variant="outline"
+              onClick={handleTest}
+              className="border-[var(--vscode-panel-border,#3c3c3c)] text-[var(--vscode-editor-foreground,#cccccc)]"
+              disabled={!hasValidCommand()}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+              {t('test')}
+            </Button>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {commandError && (
+              <div className="text-sm text-red-400 mr-2">
+                {t('commandRequired')}
+              </div>
+            )}
             <Button
               variant="outline"
               onClick={() => {
@@ -308,6 +455,20 @@ const CellConfigDrawer: React.FC<CellConfigDrawerProps> = ({
         </div>
       </SheetContent>
     </Sheet>
+
+    {localCell && (
+      <TerminalTestModal
+        open={testModalOpen}
+        onOpenChange={setTestModalOpen}
+        cell={localCell}
+        output={testOutput}
+        exitCode={testExitCode}
+        onStop={onStopTest}
+        registerTerminalRef={registerTerminalRef}
+        t={t}
+      />
+    )}
+  </>
   );
 };
 

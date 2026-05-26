@@ -86,6 +86,16 @@ export interface ConfigSavedMessage {
   payload: { config: TermGridConfig };
 }
 
+export interface TerminalTestDataMessage {
+  type: 'terminal:testData';
+  payload: { data: string };
+}
+
+export interface TerminalTestExitMessage {
+  type: 'terminal:testExit';
+  payload: { code: number };
+}
+
 export type ExtensionMessage =
   | ConfigLoadedMessage
   | ConfigUpdatedMessage
@@ -94,7 +104,9 @@ export type ExtensionMessage =
   | TerminalExitedMessage
   | TreeRefreshMessage
   | ConfigSavedAsMessage
-  | ConfigSavedMessage;
+  | ConfigSavedMessage
+  | TerminalTestDataMessage
+  | TerminalTestExitMessage;
 
 // WebView -> Host
 export interface ConfigSaveMessage {
@@ -157,6 +169,16 @@ export interface WebviewReadyMessage {
   payload: Record<string, never>;
 }
 
+export interface TerminalTestStartMessage {
+  type: 'terminal:testStart';
+  payload: { cell: TerminalCell };
+}
+
+export interface TerminalTestStopMessage {
+  type: 'terminal:testStop';
+  payload: Record<string, never>;
+}
+
 export type WebviewMessage =
   | ConfigSaveMessage
   | ConfigSaveAsMessage
@@ -169,7 +191,9 @@ export type WebviewMessage =
   | CellUpdateMessage
   | LayoutChangeMessage
   | WebviewReloadMessage
-  | WebviewReadyMessage;
+  | WebviewReadyMessage
+  | TerminalTestStartMessage
+  | TerminalTestStopMessage;
 
 // Layout presets
 export const LAYOUT_PRESETS: LayoutPreset[] = [

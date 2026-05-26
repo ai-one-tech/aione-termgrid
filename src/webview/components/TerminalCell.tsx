@@ -174,7 +174,7 @@ const TerminalCellComponent: React.FC<TerminalCellProps> = ({
               style={{ backgroundColor: getStatusColor() }}
               title={getStatusText()}
             />
-            <span className="truncate">{cell.title}</span>
+            <span className="truncate" title={cell.title}>{cell.title}</span>
             <span className="text-xs text-muted-foreground ml-1">
               {getStatusText()}
             </span>
@@ -213,8 +213,12 @@ const TerminalCellComponent: React.FC<TerminalCellProps> = ({
             </Button>
           </div>
         </CardHeader>
-        <CardContent className="flex-1 p-0 overflow-hidden">
-          <div ref={terminalRef} className="w-full h-full" />
+        <CardContent className="flex-1 p-0 overflow-hidden relative">
+          <div 
+            ref={terminalRef} 
+            className="absolute inset-0" 
+            style={{ backgroundColor: 'var(--vscode-terminal-background, var(--vscode-editor-background, #1e1e1e))' }}
+          />
         </CardContent>
       </Card>
     </div>

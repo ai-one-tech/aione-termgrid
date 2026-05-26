@@ -202,7 +202,13 @@ const MaximizeModal: React.FC<MaximizeModalProps> = ({
           />
         )}
         
-        <div ref={terminalRef} className="flex-1 w-full h-full bg-background" />
+        <div className="flex-1 w-full h-full bg-background overflow-hidden relative">
+          <div 
+            ref={terminalRef} 
+            className="absolute inset-0" 
+            style={{ backgroundColor: 'var(--vscode-terminal-background, var(--vscode-editor-background, #1e1e1e))' }}
+          />
+        </div>
       </DialogContent>
       </Dialog>
     </div>

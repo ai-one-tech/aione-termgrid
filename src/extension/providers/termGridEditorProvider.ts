@@ -138,6 +138,16 @@ export class TermGridEditorProvider implements vscode.CustomTextEditorProvider {
             message.payload.rows
           );
           break;
+        case 'terminal:testStart':
+          await ptyManager.testCell(
+            message.payload.cell,
+            (data) => postMessage({ type: 'terminal:testData', payload: { data } }),
+            (code) => postMessage({ type: 'terminal:testExit', payload: { code } })
+          );
+          break;
+        case 'terminal:testStop':
+          await ptyManager.stopTest();
+          break;
         case 'webview:reload':
           webviewPanel.webview.html = this.getHtmlForWebview(webviewPanel.webview);
           break;
