@@ -170,7 +170,7 @@
     "publish:vscode": "vsce publish",
     "publish:ovsx": "ovsx publish",
     "publish": "npm run publish:vscode && npm run publish:ovsx",
-    "release": "./scripts/release.sh"
+    "release": "./scripts/release.sh --publish-all"
   },
   "dependencies": {
     "@xterm/addon-fit": "^0.12.0-beta.220",
