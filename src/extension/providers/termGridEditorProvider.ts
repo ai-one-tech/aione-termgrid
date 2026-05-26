@@ -49,6 +49,7 @@ export class TermGridEditorProvider implements vscode.CustomTextEditorProvider {
     if (!state) {
       const ptyManager = new PtyManager({
         workspaceRoot,
+        getInitialDelay: () => editorRegistry.get(filePath)?.config?.initialDelay ?? 2000,
         onData: (cellId: string, data: string) => {
           this.broadcast(filePath, {
             type: 'terminal:data',
@@ -74,6 +75,9 @@ export class TermGridEditorProvider implements vscode.CustomTextEditorProvider {
         config: this.parseConfig(document),
         panels: new Set(),
       };
+      if (state.config) {
+        this.configManager.updateCache(filePath, state.config);
+      }
       editorRegistry.set(filePath, state);
     }
 
@@ -91,6 +95,7 @@ export class TermGridEditorProvider implements vscode.CustomTextEditorProvider {
         const newConfig = this.parseConfig(document);
         if (newConfig && state) {
           state.config = newConfig;
+          this.configManager.updateCache(filePath, newConfig);
           this.broadcast(filePath, {
             type: 'config:updated',
             payload: { config: newConfig },
@@ -409,6 +414,16 @@ export class TermGridEditorProvider implements vscode.CustomTextEditorProvider {
       const success = await vscode.workspace.applyEdit(edit);
       if (success) {
         await document.save();
+        
+        // Update shared state config
+        const state = editorRegistry.get(filePath);
+        if (state) {
+          state.config = config;
+        }
+
+        // Update config manager cache
+        this.configManager.updateCache(filePath, config);
+
         this.broadcast(filePath, {
           type: 'config:saved',
           payload: { config },

@@ -48,6 +48,7 @@ export const TermGridConfigSchema = z.object({
   cells: z.array(TerminalCellSchema).min(1).max(50),
   mergedCells: z.array(MergedCellSchema).optional().default([]),
   language: z.string().optional().default('zh'),
+  initialDelay: z.number().int().min(0).max(60000).default(2000),
 });
 
 // Layout preset

@@ -107,6 +107,7 @@ const App: React.FC<AppProps> = ({ vscode }) => {
       switch (message.type) {
         case 'config:loaded':
         case 'config:updated':
+        case 'config:saved':
           setConfig(message.payload.config);
           setLanguage((message.payload.config.language as Language) || 'zh');
           // When config is loaded/updated from file, reset dirty state
@@ -116,11 +117,6 @@ const App: React.FC<AppProps> = ({ vscode }) => {
           if (message.type === 'config:loaded' && message.payload.showCloseWarning) {
             setShowCloseWarning(true);
           }
-          break;
-        case 'config:saved':
-          // Config saved successfully, reset dirty state
-          setIsDirty(false);
-          setModifiedFields([]);
           break;
         case 'terminal:data': {
           const nextData = (terminalData.current[message.payload.cellId] || '') + message.payload.data;

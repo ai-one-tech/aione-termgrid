@@ -241,4 +241,5 @@ export const DEFAULT_CONFIG: TermGridConfig = {
   ],
   mergedCells: [],
   language: 'zh',
+  initialDelay: 2000,
 };

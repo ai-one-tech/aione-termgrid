@@ -137,6 +137,13 @@ export class ConfigManager {
   }
 
   /**
+   * Update cache for a config file
+   */
+  updateCache(filePath: string, config: TermGridConfig): void {
+    this.configCache.set(filePath, config);
+  }
+
+  /**
    * Clear cache
    */
   clearCache(): void {

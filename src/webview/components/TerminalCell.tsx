@@ -156,7 +156,7 @@ const TerminalCellComponent: React.FC<TerminalCellProps> = ({
   return (
     <div data-testid="TerminalCell" className="h-full">
       <Card
-        className="h-full flex flex-col"
+        className="h-full flex flex-col overflow-hidden"
         style={
           cell.borderColor
             ? {

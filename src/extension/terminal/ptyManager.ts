@@ -26,8 +26,9 @@ function getPty(): typeof Pty {
 }
 
 /**
- * Kill an entire process tree on Windows using taskkill.
- * On non-Windows platforms this is a no-op (pty.kill sends SIGTERM to the group).
+ * Kill an entire process tree.
+ * On Windows: uses taskkill /T /F.
+ * On Unix: sends SIGKILL to the process group.
  */
 function killProcessTree(pid: number): void {
   if (os.platform() === 'win32') {
@@ -40,6 +41,23 @@ function killProcessTree(pid: number): void {
       console.log(`[TermGrid] killProcessTree: PID ${pid} killed successfully`);
     } catch (err) {
       console.warn(`[TermGrid] killProcessTree: taskkill failed for PID ${pid}`, err);
+    }
+  } else {
+    try {
+      // On Unix-like systems, we try to kill the process group (using -pid)
+      // This sends the signal to the process and all its children.
+      // SIGKILL (9) is used for a forced stop.
+      process.kill(-pid, 'SIGKILL');
+      console.log(`[TermGrid] killProcessTree: SIGKILL sent to process group -${pid}`);
+    } catch (err) {
+      // If killing the group fails (e.g., process not a group leader), 
+      // try killing the individual process.
+      try {
+        process.kill(pid, 'SIGKILL');
+        console.log(`[TermGrid] killProcessTree: SIGKILL sent to PID ${pid}`);
+      } catch (err2) {
+        console.warn(`[TermGrid] killProcessTree: Failed to kill PID ${pid}`, err2);
+      }
     }
   }
 }
@@ -57,6 +75,7 @@ const MAX_BUFFER_LINES = 1000;
 
 export interface PtyManagerOptions {
   workspaceRoot?: string;
+  getInitialDelay?: () => number;
   onData: (cellId: string, data: string) => void;
   onStatusChange: (cellId: string, status: TerminalStatus) => void;
   onExit: (cellId: string, code: number) => void;
@@ -170,11 +189,12 @@ export class PtyManager {
       });
 
       if (initialCommand) {
+        const delay = this.options.getInitialDelay ? this.options.getInitialDelay() : 2000;
         setTimeout(() => {
           if (this.testProcess) {
             this.testProcess.pty.write(`${initialCommand}\r`);
           }
-        }, 500);
+        }, delay);
       }
     } catch (error) {
       console.error(`[TermGrid] Failed to start test terminal:`, error);
@@ -190,7 +210,9 @@ export class PtyManager {
     if (!this.testProcess) return;
     try {
       killProcessTree(this.testProcess.pty.pid);
-      this.testProcess.pty.kill();
+      try {
+        this.testProcess.pty.kill(os.platform() === 'win32' ? undefined : 'SIGKILL');
+      } catch (e) {}
       this.testProcess = null;
     } catch (error) {
       console.error(`[TermGrid] stopTest failed`, error);
@@ -297,12 +319,14 @@ export class PtyManager {
 
       if (initialCommand) {
         // Simple delay to ensure the shell is ready to receive input
+        const delay = this.options.getInitialDelay ? this.options.getInitialDelay() : 2000;
+        console.log(`[TermGrid] Scheduling initial command for cell ${cell.id} with ${delay}ms delay: "${initialCommand}"`);
         setTimeout(() => {
           const activeProcess = this.processes.get(cell.id);
           if (activeProcess) {
             activeProcess.pty.write(`${initialCommand}\r`);
           }
-        }, 500);
+        }, delay);
       }
     } catch (error) {
       this.options.onStatusChange(cell.id, 'error');
@@ -323,7 +347,11 @@ export class PtyManager {
     try {
       console.log(`[TermGrid] stopCell: cell=${cellId} pid=${processData.pty.pid}`);
       killProcessTree(processData.pty.pid);
-      processData.pty.kill();
+      try {
+        processData.pty.kill(os.platform() === 'win32' ? undefined : 'SIGKILL');
+      } catch (e) {
+        // Process might already be killed by killProcessTree
+      }
       console.log(`[TermGrid] stopCell: pty.kill() called for pid=${processData.pty.pid}`);
       this.processes.delete(cellId);
       this.options.onStatusChange(cellId, 'stopped');
@@ -475,7 +503,9 @@ export class PtyManager {
       try {
         console.log(`[TermGrid] dispose: cell=${cellId} pid=${processData.pty.pid}`);
         killProcessTree(processData.pty.pid);
-        processData.pty.kill();
+        try {
+          processData.pty.kill(os.platform() === 'win32' ? undefined : 'SIGKILL');
+        } catch (e) {}
       } catch (error) {
         console.error(`[TermGrid] dispose: failed for cell=${cellId} pid=${processData.pty.pid}`, error);
       }

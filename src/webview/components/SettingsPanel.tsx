@@ -418,6 +418,26 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
               </div>
             </div>
 
+            {/* Initial Delay */}
+            <div className="space-y-2">
+              <Label>{t('initialDelay')}</Label>
+              <Input
+                type="number"
+                min={0}
+                max={60000}
+                value={localConfig.initialDelay ?? 2000}
+                onChange={(e) =>
+                  setLocalConfig({
+                    ...localConfig,
+                    initialDelay: parseInt(e.target.value) || 0,
+                  })
+                }
+              />
+              <p className="text-xs text-[var(--vscode-descriptionForeground,#858585)]">
+                {t('initialDelayDescription')}
+              </p>
+            </div>
+
             {/* Grid Preview with Click to Configure */}
             <div className="space-y-4">
               <div>
