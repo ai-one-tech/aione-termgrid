@@ -95,18 +95,27 @@ jobs:
       - name: Collect release artifacts
         id: artifacts
         run: |
-          FILES=""
-          if [ "${{ github.event_name }}" == "push" ] || [ "${{ inputs.publish_vscode }}" == "true" ]; then
-            FILES="$FILES termgrid-vsce-*.vsix"
-          fi
-          if [ "${{ github.event_name }}" == "push" ] || [ "${{ inputs.publish_openvsx }}" == "true" ]; then
-            FILES="$FILES termgrid-ovsx-*.vsix"
-          fi
-          if [ "${{ github.event_name }}" == "push" ] || [ "${{ inputs.publish_jetbrains }}" == "true" ]; then
-            FILES="$FILES jetbrains-plugin/build/distributions/*.zip"
-          fi
-          echo "files=$FILES" >> $GITHUB_OUTPUT
-          echo "Release files: $FILES"
+          echo "=== 🔍 Listing generated artifacts ==="
+          ls -lh *.vsix || echo "No .vsix files found."
+          ls -lh jetbrains-plugin/build/distributions/*.zip || echo "No .zip files found."
+          
+          echo "=== 📝 Preparing file list for release ==="
+          {
+            echo 'files<<EOF'
+            if [ "${{ github.event_name }}" == "push" ] || [ "${{ inputs.publish_vscode }}" == "true" ]; then
+              echo "termgrid-vsce-*.vsix"
+            fi
+            if [ "${{ github.event_name }}" == "push" ] || [ "${{ inputs.publish_openvsx }}" == "true" ]; then
+              echo "termgrid-ovsx-*.vsix"
+            fi
+            if [ "${{ github.event_name }}" == "push" ] || [ "${{ inputs.publish_jetbrains }}" == "true" ]; then
+              echo "jetbrains-plugin/build/distributions/*.zip"
+            fi
+            echo 'EOF'
+          } >> $GITHUB_OUTPUT
+          
+          echo "=== ✅ Files written to GITHUB_OUTPUT ==="
+          cat $GITHUB_OUTPUT
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v3
