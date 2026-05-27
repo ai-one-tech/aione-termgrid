@@ -1,6 +1,8 @@
-# AiOne TermGrid
+# TermGrid AiOne
 
-批量管理多个终端的 VS Code 扩展 - 在网格布局中高效管理多个终端会话
+批量管理多个终端的插件 - 在网格布局中高效管理多个终端会话
+
+支持 VS Code、Open VSX 和 JetBrains 平台
 
 [中文](./README.md) | [English](./README_en.md)
 
@@ -19,13 +21,41 @@
 - **环境变量** - 为每个终端自定义环境变量
 - **启动顺序** - 支持设置终端启动顺序和延迟
 
+## 截图
+
+### 主界面
+
+![主界面 - 深色模式](docs/images/dark-main.png)
+
+![主界面 - 浅色模式](docs/images/light-main.png)
+
+### 网格视图
+
+![网格视图](docs/images/light-grid-view.png)
+
+### 终端工具栏
+
+![工具栏视图](docs/images/light-tools-view.png)
+
+### 设置面板
+
+![设置面板](docs/images/light-setting.png)
+
+![网格设置](docs/images/light-setting-grid.png)
+
+![网格合并](docs/images/light-setting-grid-merge.png)
+
+### 另存为
+
+![另存为](docs/images/light-saveas.png)
+
 ## 安装
 
 ### VS Code Marketplace（推荐）
 
 1. 打开 VS Code
 2. 进入扩展市场（`Ctrl+Shift+X`）
-3. 搜索 "AiOne TermGrid"
+3. 搜索 "TermGrid AiOne"
 4. 点击安装
 
 ### 手动安装
@@ -38,6 +68,13 @@ code --install-extension aione-termgrid-0.1.0.vsix
 ### Open VSX Registry
 
 访问 [Open VSX Registry](https://open-vsx.org/extension/AiOne/TermGrid) 进行安装
+
+### JetBrains Marketplace
+
+1. 打开 JetBrains IDE（IntelliJ IDEA、WebStorm、PyCharm 等）
+2. 进入 `Settings/Preferences → Plugins → Marketplace`
+3. 搜索 "TermGrid AiOne"
+4. 点击 Install 并重启 IDE
 
 ## 快速开始
 
@@ -246,7 +283,8 @@ env:
 
 ## 系统要求
 
-- VS Code 1.85.0 或更高版本
+- **VS Code**: 1.85.0 或更高版本
+- **JetBrains**: 2023.1 或更高版本（IntelliJ IDEA、WebStorm、PyCharm 等）
 - 支持 Windows、macOS、Linux
 - Node.js 18+（仅开发需要）
 
@@ -277,6 +315,7 @@ env:
 - [react-grid-layout](https://github.com/react-grid-layout/react-grid-layout) - 网格布局
 - [shadcn/ui](https://ui.shadcn.com/) - UI 组件库
 - [VS Code](https://code.visualstudio.com/) - 开发环境
+- [JetBrains](https://www.jetbrains.com/) - 开发环境
 
 ---
 

@@ -5,6 +5,19 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
+    inputs:
+      publish_vscode:
+        description: 'Publish to VS Code Marketplace'
+        type: boolean
+        default: true
+      publish_openvsx:
+        description: 'Publish to Open VSX'
+        type: boolean
+        default: true
+      publish_jetbrains:
+        description: 'Publish to JetBrains Marketplace'
+        type: boolean
+        default: true
 
 permissions:
   contents: write
@@ -42,6 +55,7 @@ jobs:
         run: npm ci
 
       - name: Package and Publish to VS Code Marketplace (AiOne)
+        if: github.event_name == 'push' || inputs.publish_vscode
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
         run: |
@@ -51,6 +65,7 @@ jobs:
           npx vsce publish --packagePath termgrid-vsce-$VERSION.vsix -p $VSCE_PAT
 
       - name: Package and Publish to Open VSX (AiOneTech)
+        if: github.event_name == 'push' || inputs.publish_openvsx
         env:
           OVSX_PAT: ${{ secrets.OVSX_PAT }}
         run: |
@@ -62,12 +77,41 @@ jobs:
           npx vsce package --out termgrid-ovsx-$VERSION.vsix
           npx ovsx publish termgrid-ovsx-$VERSION.vsix -p $OVSX_PAT
 
+      - name: Set up JDK 17
+        if: github.event_name == 'push' || inputs.publish_jetbrains
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Package and Publish to JetBrains Marketplace
+        if: github.event_name == 'push' || inputs.publish_jetbrains
+        env:
+          JETBRAINS_TOKEN: ${{ secrets.JETBRAINS_TOKEN }}
+        run: |
+          npm run build:webview
+          cd jetbrains-plugin
+          ./gradlew buildPlugin publishPlugin
+
+      - name: Collect release artifacts
+        id: artifacts
+        run: |
+          FILES=""
+          if [ "${{ github.event_name }}" == "push" ] || [ "${{ inputs.publish_vscode }}" == "true" ]; then
+            FILES="$FILES termgrid-vsce-*.vsix"
+          fi
+          if [ "${{ github.event_name }}" == "push" ] || [ "${{ inputs.publish_openvsx }}" == "true" ]; then
+            FILES="$FILES termgrid-ovsx-*.vsix"
+          fi
+          echo "files=$FILES" >> $GITHUB_OUTPUT
+          echo "Release files: $FILES"
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v3
-        if: success()
+        if: success() && steps.artifacts.outputs.files != ''
         with:
           tag_name: ${{ steps.vars.outputs.tag }}
-          files: "*.vsix"
+          files: ${{ steps.artifacts.outputs.files }}
           generate_release_notes: true
           draft: false
           prerelease: false

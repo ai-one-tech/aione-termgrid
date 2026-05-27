@@ -41,11 +41,10 @@ export class ConfigTreeItem extends vscode.TreeItem {
     public readonly status: TerminalStatus,
     public readonly collapsibleState: vscode.TreeItemCollapsibleState
   ) {
-    super(name, collapsibleState);
+    super(`${ConfigTreeItem.getStatusText(status)}  ${name}`, collapsibleState);
     
     this.tooltip = `${name}.tg`;
-    this.description = this.getStatusText(status);
-    this.iconPath = this.getStatusIcon(status);
+    this.description = ''; // Removed because status is now in label
     
     this.command = {
       command: 'termGrid.openConfig',
@@ -54,33 +53,18 @@ export class ConfigTreeItem extends vscode.TreeItem {
     };
   }
 
-  private getStatusText(status: TerminalStatus): string {
+  private static getStatusText(status: TerminalStatus): string {
     switch (status) {
       case 'running':
-        return '$(play) Running';
+        return 'Running';
       case 'stopped':
-        return '$(stop) Stopped';
+        return 'Stopped';
       case 'pending':
-        return '$(watch) Pending';
+        return 'Pending';
       case 'error':
-        return '$(error) Error';
+        return 'Error';
       default:
         return '';
-    }
-  }
-
-  private getStatusIcon(status: TerminalStatus): vscode.ThemeIcon {
-    switch (status) {
-      case 'running':
-        return new vscode.ThemeIcon('play', new vscode.ThemeColor('terminal.ansiGreen'));
-      case 'stopped':
-        return new vscode.ThemeIcon('stop', new vscode.ThemeColor('terminal.ansiRed'));
-      case 'pending':
-        return new vscode.ThemeIcon('watch', new vscode.ThemeColor('terminal.ansiYellow'));
-      case 'error':
-        return new vscode.ThemeIcon('error', new vscode.ThemeColor('terminal.ansiRed'));
-      default:
-        return new vscode.ThemeIcon('file');
     }
   }
 }

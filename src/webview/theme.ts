@@ -16,7 +16,10 @@ const readCssVar = (
 };
 
 export const getEditorThemeKind = (): Theme => {
-  if (document.body.classList.contains('vscode-light')) {
+  if (
+    document.body.classList.contains('vscode-light') ||
+    document.body.classList.contains('jb-light')
+  ) {
     return 'light';
   }
 
@@ -27,46 +30,30 @@ export const getXtermTheme = () => {
   const styles = getComputedStyle(document.body);
 
   return {
-    background: readCssVar(
-      styles,
-      ['--vscode-terminal-background', '--vscode-editor-background'],
-      '#1e1e1e'
-    ),
-    foreground: readCssVar(
-      styles,
-      ['--vscode-terminal-foreground', '--vscode-editor-foreground'],
-      '#cccccc'
-    ),
-    cursor: readCssVar(
-      styles,
-      ['--vscode-terminalCursor-foreground', '--vscode-editorCursor-foreground'],
-      '#aeafad'
-    ),
-    cursorAccent: readCssVar(
-      styles,
-      ['--vscode-terminalCursor-background', '--vscode-editor-background'],
-      '#1e1e1e'
-    ),
+    background: readCssVar(styles, ['--tg-terminal-bg'], '#1e1e1e'),
+    foreground: readCssVar(styles, ['--tg-terminal-fg'], '#cccccc'),
+    cursor: readCssVar(styles, ['--tg-terminal-cursor'], '#aeafad'),
+    cursorAccent: readCssVar(styles, ['--tg-terminal-cursor-accent'], '#1e1e1e'),
     selectionBackground: readCssVar(
       styles,
-      ['--vscode-terminal-selectionBackground', '--vscode-editor-selectionBackground'],
+      ['--vscode-terminal-selectionBackground', '--vscode-editor-selectionBackground', '--jb-editor-selection', '--editor-selection'],
       'rgba(128, 128, 128, 0.35)'
     ),
-    black: readCssVar(styles, ['--vscode-terminal-ansiBlack'], '#000000'),
-    red: readCssVar(styles, ['--vscode-terminal-ansiRed'], '#cd3131'),
-    green: readCssVar(styles, ['--vscode-terminal-ansiGreen'], '#0dbc79'),
-    yellow: readCssVar(styles, ['--vscode-terminal-ansiYellow'], '#e5e510'),
-    blue: readCssVar(styles, ['--vscode-terminal-ansiBlue'], '#2472c8'),
-    magenta: readCssVar(styles, ['--vscode-terminal-ansiMagenta'], '#bc3fbc'),
-    cyan: readCssVar(styles, ['--vscode-terminal-ansiCyan'], '#11a8cd'),
-    white: readCssVar(styles, ['--vscode-terminal-ansiWhite'], '#e5e5e5'),
-    brightBlack: readCssVar(styles, ['--vscode-terminal-ansiBrightBlack'], '#666666'),
-    brightRed: readCssVar(styles, ['--vscode-terminal-ansiBrightRed'], '#f14c4c'),
-    brightGreen: readCssVar(styles, ['--vscode-terminal-ansiBrightGreen'], '#23d18b'),
-    brightYellow: readCssVar(styles, ['--vscode-terminal-ansiBrightYellow'], '#f5f543'),
-    brightBlue: readCssVar(styles, ['--vscode-terminal-ansiBrightBlue'], '#3b8eea'),
-    brightMagenta: readCssVar(styles, ['--vscode-terminal-ansiBrightMagenta'], '#d670d6'),
-    brightCyan: readCssVar(styles, ['--vscode-terminal-ansiBrightCyan'], '#29b8db'),
-    brightWhite: readCssVar(styles, ['--vscode-terminal-ansiBrightWhite'], '#e5e5e5'),
+    black: readCssVar(styles, ['--tg-ansi-black'], '#000000'),
+    red: readCssVar(styles, ['--tg-ansi-red'], '#cd3131'),
+    green: readCssVar(styles, ['--tg-ansi-green'], '#0dbc79'),
+    yellow: readCssVar(styles, ['--tg-ansi-yellow'], '#e5e510'),
+    blue: readCssVar(styles, ['--tg-ansi-blue'], '#2472c8'),
+    magenta: readCssVar(styles, ['--tg-ansi-magenta'], '#bc3fbc'),
+    cyan: readCssVar(styles, ['--tg-ansi-cyan'], '#11a8cd'),
+    white: readCssVar(styles, ['--tg-ansi-white'], '#e5e5e5'),
+    brightBlack: readCssVar(styles, ['--tg-ansi-bright-black'], '#666666'),
+    brightRed: readCssVar(styles, ['--tg-ansi-bright-red'], '#f14c4c'),
+    brightGreen: readCssVar(styles, ['--tg-ansi-bright-green'], '#23d18b'),
+    brightYellow: readCssVar(styles, ['--tg-ansi-bright-yellow'], '#f5f543'),
+    brightBlue: readCssVar(styles, ['--tg-ansi-bright-blue'], '#3b8eea'),
+    brightMagenta: readCssVar(styles, ['--tg-ansi-bright-magenta'], '#d670d6'),
+    brightCyan: readCssVar(styles, ['--tg-ansi-bright-cyan'], '#29b8db'),
+    brightWhite: readCssVar(styles, ['--tg-ansi-bright-white'], '#e5e5e5'),
   };
 };

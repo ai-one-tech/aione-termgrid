@@ -50,7 +50,7 @@ const TerminalTestModal: React.FC<TerminalTestModalProps> = ({
       scrollback: 10000,
       allowTransparency: true,
       cursorStyle: 'block',
-      readonly: true,
+      disableStdin: true,
     });
 
     const { fit } = loadXtermAddons(terminal);
@@ -105,7 +105,7 @@ const TerminalTestModal: React.FC<TerminalTestModalProps> = ({
         <DialogHeader className="px-6 py-4 border-b shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <span>{t('testResult')}</span>
-            <span className="text-sm font-normal text-[var(--vscode-descriptionForeground,#858585)]">
+            <span className="text-sm font-normal text-muted-foreground">
               - {cell.title}
             </span>
             {exitCode !== null && (
@@ -116,7 +116,7 @@ const TerminalTestModal: React.FC<TerminalTestModalProps> = ({
           </DialogTitle>
         </DialogHeader>
 
-        <div className="px-6 py-2 bg-[var(--vscode-editor-background,#1e1e1e)] text-[var(--vscode-descriptionForeground,#858585)] text-xs flex justify-between border-b border-[var(--vscode-panel-border,#3c3c3c)] shrink-0">
+        <div className="px-6 py-2 bg-background text-muted-foreground text-xs flex justify-between border-b border-border shrink-0">
           <span>{t('workingDirectory')}: {cell.cwd}</span>
         </div>
 
@@ -124,7 +124,7 @@ const TerminalTestModal: React.FC<TerminalTestModalProps> = ({
           <div 
             ref={terminalRef} 
             className="absolute inset-0" 
-            style={{ backgroundColor: 'var(--vscode-terminal-background, var(--vscode-editor-background, #1e1e1e))' }}
+            style={{ backgroundColor: 'var(--tg-terminal-bg)' }}
           />
         </div>
 

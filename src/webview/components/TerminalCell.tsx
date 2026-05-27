@@ -93,7 +93,24 @@ const TerminalCellComponent: React.FC<TerminalCellProps> = ({
       registerTerminalRef(cell.id, ref, 'unregister');
       terminal.dispose();
     };
-  }, [theme, cell.id, registerTerminalRef]);
+  }, [cell.id, registerTerminalRef]);
+
+  // Handle theme updates dynamically
+  useEffect(() => {
+    const updateTheme = () => {
+      if (terminalInstance.current) {
+        requestAnimationFrame(() => {
+          if (terminalInstance.current) {
+            terminalInstance.current.options.theme = getXtermTheme();
+          }
+        });
+      }
+    };
+    
+    updateTheme();
+    window.addEventListener('tg-theme-updated', updateTheme);
+    return () => window.removeEventListener('tg-theme-updated', updateTheme);
+  }, [theme]);
 
   // Handle resize
   useEffect(() => {
@@ -217,7 +234,7 @@ const TerminalCellComponent: React.FC<TerminalCellProps> = ({
           <div 
             ref={terminalRef} 
             className="absolute inset-0" 
-            style={{ backgroundColor: 'var(--vscode-terminal-background, var(--vscode-editor-background, #1e1e1e))' }}
+            style={{ backgroundColor: 'var(--tg-terminal-bg)' }}
           />
         </CardContent>
       </Card>

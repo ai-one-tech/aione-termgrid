@@ -264,9 +264,9 @@ const CellConfigDrawer: React.FC<CellConfigDrawerProps> = ({
     <>
       <Sheet open={open} onOpenChange={onOpenChange} className="sm:max-w-md">
       <SheetContent className="w-full p-0 flex flex-col h-full">
-        <SheetHeader className="p-6 pb-4 shrink-0 border-b border-[var(--vscode-panel-border,#3c3c3c)]">
+        <SheetHeader className="p-6 pb-4 shrink-0 border-b border-border">
           <SheetTitle className="text-lg font-semibold flex items-center gap-2">
-            <span className="text-[var(--vscode-descriptionForeground,#858585)] font-mono text-sm">#{cellIndex}</span>
+            <span className="text-muted-foreground font-mono text-sm">#{cellIndex}</span>
             <span className="truncate" title={localCell.title}>{localCell.title}</span>
           </SheetTitle>
         </SheetHeader>
@@ -274,27 +274,27 @@ const CellConfigDrawer: React.FC<CellConfigDrawerProps> = ({
         <div className="flex-1 overflow-y-auto px-6 py-4 space-y-5">
           {/* Title */}
           <div className="space-y-2">
-            <RequiredLabel required className="text-[var(--vscode-editor-foreground,#cccccc)]">{t('title')}</RequiredLabel>
+            <RequiredLabel required className="text-foreground">{t('title')}</RequiredLabel>
             <Input
               value={localCell.title}
               onChange={(e) => handleUpdate({ title: e.target.value })}
-              className="bg-[var(--vscode-input-background,#3c3c3c)] border-[var(--vscode-input-border,#3c3c3c)] text-[var(--vscode-editor-foreground,#cccccc)]"
+              className="bg-secondary border-input text-foreground"
             />
           </div>
 
           {/* Working Directory */}
           <div className="space-y-2">
-            <RequiredLabel required className="text-[var(--vscode-editor-foreground,#cccccc)]">{t('workingDirectory')}</RequiredLabel>
+            <RequiredLabel required className="text-foreground">{t('workingDirectory')}</RequiredLabel>
             <Input
               value={localCell.cwd}
               onChange={(e) => handleUpdate({ cwd: e.target.value })}
-              className="bg-[var(--vscode-input-background,#3c3c3c)] border-[var(--vscode-input-border,#3c3c3c)] text-[var(--vscode-editor-foreground,#cccccc)]"
+              className="bg-secondary border-input text-foreground"
             />
           </div>
 
           {/* Command - All platforms visible */}
           <div className="space-y-3">
-            <Label className="text-[var(--vscode-editor-foreground,#cccccc)]">{t('command')}</Label>
+            <Label className="text-foreground">{t('command')}</Label>
             {PLATFORM_KEYS.map((p) => {
               const value = (localCell.command && localCell.command[p.key]) || '';
               const isDefault = p.key === 'default';
@@ -304,8 +304,8 @@ const CellConfigDrawer: React.FC<CellConfigDrawerProps> = ({
                 <div key={p.key} className="space-y-1">
                   <span className={`text-xs px-2 py-0.5 rounded flex items-center w-fit ${
                     isDefault
-                      ? 'bg-[var(--vscode-focusBorder,#007fd4)] text-white'
-                      : 'bg-[var(--vscode-panel-border,#3c3c3c)] text-[var(--vscode-descriptionForeground,#858585)]'
+                      ? 'bg-[var(--vscode-focusBorder,var(--editor-foreground, #007fd4))] text-white'
+                      : 'bg-[var(--vscode-panel-border,var(--editor-foreground, #3c3c3c))] text-muted-foreground'
                   }`}>
                     {t(p.labelKey)}
                     {isDefault && <span className="text-red-400 ml-1 font-bold text-[10px]">*</span>}
@@ -315,7 +315,7 @@ const CellConfigDrawer: React.FC<CellConfigDrawerProps> = ({
                     placeholder={placeholder}
                     onChange={(e) => handleCommandChange(p.key, e.target.value)}
                     rows={2}
-                    className="bg-[var(--vscode-input-background,#3c3c3c)] border-[var(--vscode-input-border,#3c3c3c)] text-[var(--vscode-editor-foreground,#cccccc)] mt-1"
+                    className="bg-secondary border-input text-foreground mt-1"
                   />
                 </div>
               );
@@ -323,25 +323,25 @@ const CellConfigDrawer: React.FC<CellConfigDrawerProps> = ({
           </div>
 
           {/* Environment Variables */}
-          <div className="space-y-4 pt-2 border-t border-[var(--vscode-panel-border,#3c3c3c)]">
+          <div className="space-y-4 pt-2 border-t border-border">
             <div className="space-y-2">
-              <Label className="text-[var(--vscode-editor-foreground,#cccccc)]">{t('envFiles')}</Label>
+              <Label className="text-foreground">{t('envFiles')}</Label>
               <AutoResizeTextarea
                 value={envFilesText}
                 placeholder={t('envFilesPlaceholder')}
                 onChange={(e) => setEnvFilesText(e.target.value)}
                 rows={2}
-                className="bg-[var(--vscode-input-background,#3c3c3c)] border-[var(--vscode-input-border,#3c3c3c)] text-[var(--vscode-editor-foreground,#cccccc)]"
+                className="bg-secondary border-input text-foreground"
               />
             </div>
             <div className="space-y-2">
-              <Label className="text-[var(--vscode-editor-foreground,#cccccc)]">{t('manualEnv')}</Label>
+              <Label className="text-foreground">{t('manualEnv')}</Label>
               <AutoResizeTextarea
                 value={manualEnvText}
                 placeholder={t('manualEnvPlaceholder')}
                 onChange={(e) => setManualEnvText(e.target.value)}
                 rows={3}
-                className="bg-[var(--vscode-input-background,#3c3c3c)] border-[var(--vscode-input-border,#3c3c3c)] text-[var(--vscode-editor-foreground,#cccccc)] font-mono text-xs"
+                className="bg-secondary border-input text-foreground font-mono text-xs"
               />
             </div>
           </div>
@@ -349,29 +349,29 @@ const CellConfigDrawer: React.FC<CellConfigDrawerProps> = ({
           {/* Order and Delay */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label className="text-[var(--vscode-editor-foreground,#cccccc)]">{t('order')}</Label>
+              <Label className="text-foreground">{t('order')}</Label>
               <Input
                 type="number"
                 min={1}
                 value={localCell.order}
                 onChange={(e) => handleUpdate({ order: parseInt(e.target.value) || 1 })}
-                className="bg-[var(--vscode-input-background,#3c3c3c)] border-[var(--vscode-input-border,#3c3c3c)] text-[var(--vscode-editor-foreground,#cccccc)]"
+                className="bg-secondary border-input text-foreground"
               />
-              <p className="text-[10px] text-[var(--vscode-descriptionForeground,#858585)] leading-tight">
+              <p className="text-[10px] text-muted-foreground leading-tight">
                 {t('orderDescription' as any)}
               </p>
             </div>
             <div className="space-y-2">
-              <Label className="text-[var(--vscode-editor-foreground,#cccccc)]">{t('delay')}</Label>
+              <Label className="text-foreground">{t('delay')}</Label>
               <Input
                 type="number"
                 min={0}
                 max={60000}
                 value={localCell.delay}
                 onChange={(e) => handleUpdate({ delay: parseInt(e.target.value) || 0 })}
-                className="bg-[var(--vscode-input-background,#3c3c3c)] border-[var(--vscode-input-border,#3c3c3c)] text-[var(--vscode-editor-foreground,#cccccc)]"
+                className="bg-secondary border-input text-foreground"
               />
-              <p className="text-[10px] text-[var(--vscode-descriptionForeground,#858585)] leading-tight">
+              <p className="text-[10px] text-muted-foreground leading-tight">
                 {t('delayDescription' as any)}
               </p>
             </div>
@@ -379,23 +379,23 @@ const CellConfigDrawer: React.FC<CellConfigDrawerProps> = ({
 
           {/* Border Color */}
           <div className="space-y-2">
-            <Label className="text-[var(--vscode-editor-foreground,#cccccc)]">{t('borderColor')}</Label>
+            <Label className="text-foreground">{t('borderColor')}</Label>
             <div className="flex gap-2 flex-wrap items-center">
               <button
                 className={`w-8 h-8 rounded-full border-2 transition-all flex items-center justify-center ${
                   !localCell.borderColor
-                    ? 'border-[var(--vscode-focusBorder,#007fd4)]'
-                    : 'border-[var(--vscode-panel-border,#3c3c3c)]'
-                } hover:border-[var(--vscode-focusBorder,#007fd4)]`}
+                    ? 'border-ring'
+                    : 'border-border'
+                } hover:border-ring`}
                 style={{ 
                   backgroundColor: !localCell.borderColor 
-                    ? 'var(--vscode-list-hoverBackground, rgba(127,127,127,0.1))' 
-                    : 'var(--vscode-editor-background,#1e1e1e)' 
+                    ? 'var(--vscode-list-hoverBackground, var(--editor-background, rgba(127,127,127,0.1)))' 
+                    : 'var(--vscode-editor-background,var(--editor-background, #1e1e1e))' 
                 }}
                 onClick={() => handleUpdate({ borderColor: undefined })}
                 title="None"
               >
-                <XIcon className={!localCell.borderColor ? "text-[var(--vscode-focusBorder,#007fd4)]" : "text-[var(--vscode-descriptionForeground,#858585)] opacity-40"} />
+                <XIcon className={!localCell.borderColor ? "text-ring" : "text-muted-foreground opacity-40"} />
               </button>
               {BORDER_COLORS.map((color) => {
                 const isSelected = localCell.borderColor === color;
@@ -404,8 +404,8 @@ const CellConfigDrawer: React.FC<CellConfigDrawerProps> = ({
                     key={color}
                     className={`w-8 h-8 rounded-full border-2 transition-all flex items-center justify-center ${
                       isSelected
-                        ? 'border-[var(--vscode-focusBorder,#007fd4)]'
-                        : 'border-transparent hover:border-[var(--vscode-panel-border,#3c3c3c)]'
+                        ? 'border-ring'
+                        : 'border-transparent hover:border-border'
                     }`}
                     style={{ backgroundColor: color }}
                     onClick={() => handleUpdate({ borderColor: color })}
@@ -419,12 +419,12 @@ const CellConfigDrawer: React.FC<CellConfigDrawerProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="p-6 pt-4 shrink-0 border-t border-[var(--vscode-panel-border,#3c3c3c)] flex items-center justify-between">
+        <div className="p-6 pt-4 shrink-0 border-t border-border flex items-center justify-between">
           <div className="flex-1">
             <Button
               variant="outline"
               onClick={handleTest}
-              className="border-[var(--vscode-panel-border,#3c3c3c)] text-[var(--vscode-editor-foreground,#cccccc)]"
+              className="border-border text-foreground"
               disabled={!hasValidCommand()}
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
@@ -444,7 +444,7 @@ const CellConfigDrawer: React.FC<CellConfigDrawerProps> = ({
                 setCommandError(false);
                 onOpenChange(false);
               }}
-              className="border-[var(--vscode-panel-border,#3c3c3c)]"
+              className="border-border"
             >
               {t('cancel')}
             </Button>

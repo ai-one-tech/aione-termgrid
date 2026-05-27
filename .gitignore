@@ -26,3 +26,13 @@ coverage/
 .env.local
 
 .workbuddy
+
+# JetBrains Plugin
+jetbrains-plugin/build/
+jetbrains-plugin/.gradle/
+jetbrains-plugin/.idea/
+jetbrains-plugin/.intellijPlatform/
+
+# TermGrid configs
+.term-grid/
+
