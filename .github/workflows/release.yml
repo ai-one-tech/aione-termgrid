@@ -62,17 +62,7 @@ jobs:
           VERSION=$(jq -r .version package.json)
           rm -rf out dist
           npx vsce package --out termgrid-vsce-$VERSION.vsix
-          # Retry up to 3 times to handle Marketplace API timeouts
-          for i in 1 2 3; do
-            if npx vsce publish --packagePath termgrid-vsce-$VERSION.vsix -p $VSCE_PAT; then
-              echo "Published successfully on attempt $i"
-              break
-            else
-              echo "Attempt $i failed, retrying in 30s..."
-              sleep 30
-            fi
-          done
-
+          npx vsce publish --packagePath termgrid-vsce-$VERSION.vsix -p $VSCE_PAT
       - name: Package and Publish to Open VSX (AiOneTech)
         if: github.event_name == 'push' || inputs.publish_openvsx
         env:
