@@ -17,3 +17,5 @@ yarn.lock
 *.vsix
 *.bak
 .package.json.tmp
+jetbrains-plugin
+

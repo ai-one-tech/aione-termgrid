@@ -173,6 +173,7 @@
     "publish:ovsx": "ovsx publish",
     "publish:jetbrains": "cd jetbrains-plugin && ./gradlew publishPlugin",
     "publish": "npm run publish:vscode && npm run publish:ovsx && npm run publish:jetbrains",
+    "package": "./scripts/release.sh",
     "release": "./scripts/release.sh --publish-all"
   },
   "dependencies": {
