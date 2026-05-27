@@ -16,6 +16,10 @@ export default defineConfig({
     outDir: 'dist',
     emptyOutDir: true,
     sourcemap: true,
+    // Disable minification: esbuild's identifier mangling breaks @xterm/xterm's
+    // const enum pattern in requestMode(), causing "ReferenceError: r is not defined"
+    // at runtime. Safe to skip since this is a local VSCode webview bundle.
+    minify: false,
     rollupOptions: {
       input: {
         main: path.resolve(__dirname, 'src/webview/main.tsx'),
