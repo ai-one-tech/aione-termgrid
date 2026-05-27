@@ -1,3 +1,5 @@
+import groovy.json.JsonSlurper
+
 plugins {
     id("java")
     id("org.jetbrains.kotlin.jvm") version "1.9.22"
@@ -5,7 +7,11 @@ plugins {
 }
 
 group = "org.aione.termgrid"
-version = "0.1.7"
+
+val packageJson = JsonSlurper().parseText(file("../package.json").readText()) as Map<String, Any>
+val pluginVersion = packageJson["version"] as String
+
+version = pluginVersion
 
 repositories {
     mavenCentral()
@@ -26,7 +32,7 @@ intellijPlatform {
     pluginConfiguration {
         id = "org.aione.termgrid"
         name = "TermGrid AiOne"
-        version = "0.1.7"
+        version = pluginVersion
         description = "Batch manage multiple terminals in a grid layout with support for merging cells, theme customization, and multi-language interface."
         vendor {
             name.set("AiOne")
@@ -37,6 +43,11 @@ intellijPlatform {
             sinceBuild.set("233")
             untilBuild.set(provider { null as String? })
         }
+    }
+
+    publishing {
+        token = System.getenv("JETBRAINS_TOKEN")
+        channels = listOf("stable")
     }
 }
 

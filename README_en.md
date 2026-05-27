@@ -1,6 +1,8 @@
-# AiOne TermGrid
+# TermGrid AiOne
 
-A VS Code extension for batch managing multiple terminals - efficiently manage multiple terminal sessions in a grid layout
+A plugin for batch managing multiple terminals - efficiently manage multiple terminal sessions in a grid layout
+
+Supports VS Code, Open VSX, and JetBrains platforms
 
 [中文](./README.md) | [English](./README_en.md)
 
@@ -19,13 +21,41 @@ A VS Code extension for batch managing multiple terminals - efficiently manage m
 - **Environment Variables** - Customize environment variables for each terminal
 - **Startup Order** - Set terminal startup order and delay
 
+## Screenshots
+
+### Main Interface
+
+![Main Interface - Dark Mode](docs/images/dark-main.png)
+
+![Main Interface - Light Mode](docs/images/light-main.png)
+
+### Grid View
+
+![Grid View](docs/images/light-grid-view.png)
+
+### Terminal Toolbar
+
+![Toolbar View](docs/images/light-tools-view.png)
+
+### Settings Panel
+
+![Settings Panel](docs/images/light-setting.png)
+
+![Grid Settings](docs/images/light-setting-grid.png)
+
+![Grid Merge](docs/images/light-setting-grid-merge.png)
+
+### Save As
+
+![Save As](docs/images/light-saveas.png)
+
 ## Installation
 
 ### VS Code Marketplace (Recommended)
 
 1. Open VS Code
 2. Go to Extensions (`Ctrl+Shift+X`)
-3. Search for "AiOne TermGrid"
+3. Search for "TermGrid AiOne"
 4. Click Install
 
 ### Manual Installation
@@ -38,6 +68,13 @@ code --install-extension aione-termgrid-0.1.0.vsix
 ### Open VSX Registry
 
 Visit [Open VSX Registry](https://open-vsx.org/extension/AiOne/TermGrid) to install
+
+### JetBrains Marketplace
+
+1. Open your JetBrains IDE (IntelliJ IDEA, WebStorm, PyCharm, etc.)
+2. Go to `Settings/Preferences → Plugins → Marketplace`
+3. Search for "TermGrid AiOne"
+4. Click Install and restart the IDE
 
 ## Quick Start
 
@@ -246,7 +283,8 @@ Automatically selects the terminal based on the operating system:
 
 ## System Requirements
 
-- VS Code 1.85.0 or higher
+- **VS Code**: 1.85.0 or higher
+- **JetBrains**: 2023.1 or higher (IntelliJ IDEA, WebStorm, PyCharm, etc.)
 - Windows, macOS, or Linux
 - Node.js 18+ (development only)
 
@@ -277,6 +315,7 @@ This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENS
 - [react-grid-layout](https://github.com/react-grid-layout/react-grid-layout) - Grid layout
 - [shadcn/ui](https://ui.shadcn.com/) - UI component library
 - [VS Code](https://code.visualstudio.com/) - Development environment
+- [JetBrains](https://www.jetbrains.com/) - Development environment
 
 ---
 

@@ -2,7 +2,7 @@
   "name": "termgrid-aione",
   "displayName": "TermGrid AiOne",
   "description": "以网格布局批量管理多个终端，支持单元格合并、主题定制、多语言界面 Batch manage multiple terminals in a grid layout with support for merging cells, theme customization, and multi-language interface",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "publisher": "AiOne",
   "engines": {
     "vscode": "^1.85.0"
@@ -171,7 +171,8 @@
     "run:jetbrains": "vfox use -s java@17.0.2+8 && npm run build:webview && cd jetbrains-plugin && ./gradlew runIde",
     "publish:vscode": "vsce publish",
     "publish:ovsx": "ovsx publish",
-    "publish": "npm run publish:vscode && npm run publish:ovsx",
+    "publish:jetbrains": "cd jetbrains-plugin && ./gradlew publishPlugin",
+    "publish": "npm run publish:vscode && npm run publish:ovsx && npm run publish:jetbrains",
     "release": "./scripts/release.sh --publish-all"
   },
   "dependencies": {

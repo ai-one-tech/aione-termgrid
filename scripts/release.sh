@@ -28,20 +28,23 @@ usage() {
     echo "  --package-only    Only create .vsix files (default)"
     echo "  --publish-vscode  Package and publish to VS Code Marketplace"
     echo "  --publish-ovsx    Package and publish to Open VSX"
-    echo "  --publish-all     Package and publish to both"
+    echo "  --publish-jetbrains Package and publish to JetBrains Marketplace"
+    echo "  --publish-all     Package and publish to all markets"
     echo "  --help            Show this help message"
 }
 
 PACKAGE_ONLY=true
 PUBLISH_VSCODE=false
 PUBLISH_OVSX=false
+PUBLISH_JETBRAINS=false
 
 while [[ "$#" -gt 0 ]]; do
     case $1 in
         --package-only) PACKAGE_ONLY=true ;;
         --publish-vscode) PUBLISH_VSCODE=true; PACKAGE_ONLY=false ;;
         --publish-ovsx) PUBLISH_OVSX=true; PACKAGE_ONLY=false ;;
-        --publish-all) PUBLISH_VSCODE=true; PUBLISH_OVSX=true; PACKAGE_ONLY=false ;;
+        --publish-jetbrains) PUBLISH_JETBRAINS=true; PACKAGE_ONLY=false ;;
+        --publish-all) PUBLISH_VSCODE=true; PUBLISH_OVSX=true; PUBLISH_JETBRAINS=true; PACKAGE_ONLY=false ;;
         --help) usage; exit 0 ;;
         *) echo "Unknown parameter: $1"; usage; exit 1 ;;
     esac
@@ -98,6 +101,26 @@ fi
 # Restore package.json
 mv package.json.bak package.json
 
+# 3. Package and Publish for JetBrains
+if [ "$PUBLISH_JETBRAINS" = true ]; then
+    if [ -z "$JETBRAINS_TOKEN" ]; then
+        echo -e "${RED}Error: JETBRAINS_TOKEN environment variable is not set.${NC}"
+        exit 1
+    fi
+    echo -e "${YELLOW}Packaging and publishing to JetBrains Marketplace...${NC}"
+    npm run build:webview
+    cd jetbrains-plugin
+    ./gradlew buildPlugin publishPlugin
+    cd ..
+else
+    echo -e "${YELLOW}Packaging for JetBrains (no publish)...${NC}"
+    npm run build:webview
+    cd jetbrains-plugin
+    ./gradlew buildPlugin
+    cd ..
+fi
+
 echo -e "${GREEN}Release process completed!${NC}"
 echo -e "Artifacts created:"
-ls -lh *.vsix
+ls -lh *.vsix 2>/dev/null || true
+ls -lh jetbrains-plugin/build/distributions/*.zip 2>/dev/null || true
