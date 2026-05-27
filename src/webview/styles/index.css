@@ -1,48 +1,93 @@
 /* Base styles */
 :root {
-  /* Shadcn UI CSS Variables - 使用 VSCode 主题变量 */
-  --background: var(--vscode-editor-background, #1e1e1e);
-  --foreground: var(--vscode-editor-foreground, #cccccc);
+  /* =========================================================
+     1. Unified Platform Variables
+     The ONLY place where platform-specific variables (--vscode-*, --editor-*, --jb-*) should be defined.
+     ========================================================= */
+  
+  /* Core Editor Colors */
+  --tg-editor-bg: var(--vscode-editor-background, var(--editor-background, #1e1e1e));
+  --tg-editor-fg: var(--vscode-editor-foreground, var(--editor-foreground, #cccccc));
+  
+  /* Terminal Colors */
+  --tg-terminal-bg: var(--vscode-terminal-background, var(--tg-editor-bg));
+  --tg-terminal-fg: var(--vscode-terminal-foreground, var(--tg-editor-fg));
+  --tg-terminal-selection: var(--vscode-terminal-selectionBackground, var(--vscode-editor-selectionBackground, var(--jb-editor-selection, rgba(128, 128, 128, 0.35))));
+  --tg-terminal-cursor: var(--vscode-terminalCursor-foreground, var(--vscode-editorCursor-foreground, var(--jb-editor-cursor, #aeafad)));
+  --tg-terminal-cursor-accent: var(--vscode-terminalCursor-background, var(--tg-editor-bg));
 
-  --card: var(--vscode-sideBar-background, var(--vscode-editorWidget-background, #252526));
-  --card-foreground: var(--vscode-editor-foreground, #cccccc);
+  /* UI Surface Colors */
+  --tg-widget-bg: var(--vscode-editorWidget-background, var(--tg-editor-bg));
+  --tg-sidebar-bg: var(--vscode-sideBar-background, var(--tg-widget-bg));
+  
+  /* Interaction Colors */
+  --tg-hover-bg: var(--vscode-list-hoverBackground, var(--vscode-toolbar-hoverBackground, rgba(127, 127, 127, 0.12)));
+  --tg-button-bg: var(--vscode-button-background, #0e639c);
+  --tg-button-fg: var(--vscode-button-foreground, #ffffff);
+  --tg-button-hover: var(--vscode-button-hoverBackground, #1177bb);
 
-  --popover: var(--vscode-editorWidget-background, #252526);
-  --popover-foreground: var(--vscode-editor-foreground, #cccccc);
+  /* Border Colors */
+  --tg-border: var(--vscode-panel-border, var(--vscode-editorGroup-border, #3c3c3c));
+  --tg-input-border: var(--vscode-input-border, #3c3c3c);
+  --tg-focus-border: var(--vscode-focusBorder, #007fd4);
 
-  --primary: var(--vscode-button-background, #0e639c);
-  --primary-foreground: var(--vscode-button-foreground, #ffffff);
+  /* Semantic Text Colors */
+  --tg-error-fg: var(--vscode-errorForeground, #f48771);
+  --tg-desc-fg: var(--vscode-descriptionForeground, #858585);
 
-  --secondary: var(--vscode-list-hoverBackground, #2a2d2e);
-  --secondary-foreground: var(--vscode-editor-foreground, #cccccc);
+  /* ANSI Terminal Colors */
+  --tg-ansi-black: var(--vscode-terminal-ansiBlack, var(--jb-ansi-black, #000000));
+  --tg-ansi-red: var(--vscode-terminal-ansiRed, var(--jb-ansi-red, #cd3131));
+  --tg-ansi-green: var(--vscode-terminal-ansiGreen, var(--jb-ansi-green, #0dbc79));
+  --tg-ansi-yellow: var(--vscode-terminal-ansiYellow, var(--jb-ansi-yellow, #e5e510));
+  --tg-ansi-blue: var(--vscode-terminal-ansiBlue, var(--jb-ansi-blue, #2472c8));
+  --tg-ansi-magenta: var(--vscode-terminal-ansiMagenta, var(--jb-ansi-magenta, #bc3fbc));
+  --tg-ansi-cyan: var(--vscode-terminal-ansiCyan, var(--jb-ansi-cyan, #11a8cd));
+  --tg-ansi-white: var(--vscode-terminal-ansiWhite, var(--jb-ansi-white, #e5e5e5));
 
-  --muted: var(--vscode-list-hoverBackground, #2a2d2e);
-  --muted-foreground: var(--vscode-descriptionForeground, #858585);
+  --tg-ansi-bright-black: var(--vscode-terminal-ansiBrightBlack, var(--jb-ansi-bright-black, #666666));
+  --tg-ansi-bright-red: var(--vscode-terminal-ansiBrightRed, var(--jb-ansi-bright-red, #f14c4c));
+  --tg-ansi-bright-green: var(--vscode-terminal-ansiBrightGreen, var(--jb-ansi-bright-green, #23d18b));
+  --tg-ansi-bright-yellow: var(--vscode-terminal-ansiBrightYellow, var(--jb-ansi-bright-yellow, #f5f543));
+  --tg-ansi-bright-blue: var(--vscode-terminal-ansiBrightBlue, var(--jb-ansi-bright-blue, #3b8eea));
+  --tg-ansi-bright-magenta: var(--vscode-terminal-ansiBrightMagenta, var(--jb-ansi-bright-magenta, #d670d6));
+  --tg-ansi-bright-cyan: var(--vscode-terminal-ansiBrightCyan, var(--jb-ansi-bright-cyan, #29b8db));
+  --tg-ansi-bright-white: var(--vscode-terminal-ansiBrightWhite, var(--jb-ansi-bright-white, #e5e5e5));
 
-  --accent: var(--vscode-list-hoverBackground, #2a2d2e);
-  --accent-foreground: var(--vscode-editor-foreground, #cccccc);
 
-  --destructive: var(--vscode-errorForeground, #f48771);
-  --destructive-foreground: var(--vscode-editor-foreground, #cccccc);
+  /* =========================================================
+     2. Shadcn UI CSS Variables
+     Mapped strictly to our unified TermGrid variables.
+     ========================================================= */
+  --background: var(--tg-editor-bg);
+  --foreground: var(--tg-editor-fg);
 
-  --border: var(--vscode-panel-border, var(--vscode-editorGroup-border, #3c3c3c));
-  --input: var(--vscode-input-border, #3c3c3c);
-  --ring: var(--vscode-focusBorder, #007fd4);
+  --card: var(--tg-sidebar-bg);
+  --card-foreground: var(--tg-editor-fg);
+
+  --popover: var(--tg-widget-bg);
+  --popover-foreground: var(--tg-editor-fg);
+
+  --primary: var(--tg-button-bg);
+  --primary-foreground: var(--tg-button-fg);
+
+  --secondary: var(--tg-hover-bg);
+  --secondary-foreground: var(--tg-editor-fg);
+
+  --muted: var(--tg-hover-bg);
+  --muted-foreground: var(--tg-desc-fg);
+
+  --accent: var(--tg-hover-bg);
+  --accent-foreground: var(--tg-editor-fg);
+
+  --destructive: var(--tg-error-fg);
+  --destructive-foreground: var(--tg-editor-fg);
+
+  --border: var(--tg-border);
+  --input: var(--tg-input-border);
+  --ring: var(--tg-focus-border);
 
   --radius: 0.5rem;
-
-  /* TermGrid CSS Variables */
-  --tg-bg: var(--vscode-editor-background, #1e1e1e);
-  --tg-fg: var(--vscode-editor-foreground, #cccccc);
-  --tg-surface: var(--vscode-sideBar-background, var(--vscode-editorWidget-background, #252526));
-  --tg-surface-elevated: var(--vscode-editorWidget-background, var(--vscode-sideBar-background, #252526));
-  --tg-border: var(--vscode-panel-border, var(--vscode-editorGroup-border, #3c3c3c));
-  --tg-border-strong: var(--vscode-input-border, #3c3c3c);
-  --tg-hover: var(--vscode-toolbar-hoverBackground, var(--vscode-list-hoverBackground, rgba(127, 127, 127, 0.12)));
-  --tg-active: var(--vscode-button-background, #0e639c);
-  --tg-active-hover: var(--vscode-button-hoverBackground, #1177bb);
-  --tg-focus: var(--vscode-focusBorder, #007fd4);
-  --tg-error: var(--vscode-errorForeground, #f48771);
 }
 
 @tailwind base;
@@ -74,8 +119,8 @@ body,
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
   overflow: hidden;
-  background: var(--tg-bg);
-  color: var(--tg-fg);
+  background: var(--tg-editor-bg);
+  color: var(--tg-editor-fg);
 }
 
 button,
@@ -92,8 +137,8 @@ textarea {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background: var(--tg-bg);
-  color: var(--tg-fg);
+  background: var(--tg-editor-bg);
+  color: var(--tg-editor-fg);
 }
 
 .loading {
@@ -108,7 +153,7 @@ textarea {
 .terminal-grid-container {
   flex: 1;
   overflow: hidden;
-  background: var(--tg-bg);
+  background: var(--tg-editor-bg);
 }
 
 .terminal-grid {
@@ -144,7 +189,7 @@ textarea {
 }
 
 .grid-resizer-col:hover {
-  background: var(--tg-border-strong);
+  background: var(--tg-input-border);
 }
 
 .grid-resizer-row {
@@ -153,7 +198,7 @@ textarea {
 }
 
 .grid-resizer-row:hover {
-  background: var(--tg-border-strong);
+  background: var(--tg-input-border);
 }
 
 /* Custom animations */
@@ -190,4 +235,3 @@ textarea {
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: var(--vscode-scrollbarSlider-hoverBackground, rgba(100, 100, 100, 0.7));
 }
-

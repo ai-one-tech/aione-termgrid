@@ -98,6 +98,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
             id: `cell-${r}-${c}`, // Deterministic ID based on position
             title: `Terminal ${newIndex}`,
             cwd: '.',
+            order: newIndex,
             delay: 0,
           });
         }
@@ -353,7 +354,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
               <select
                 value={language}
                 onChange={(e) => onChangeLanguage(e.target.value as Language)}
-                className="w-full rounded-md border border-[var(--vscode-input-border,#3c3c3c)] bg-[var(--vscode-input-background,#3c3c3c)] px-3 py-2 text-sm text-[var(--vscode-editor-foreground,#cccccc)] ring-offset-background focus:outline-none focus:ring-2 focus:ring-[var(--vscode-focusBorder,#007fd4)] focus:ring-offset-2"
+                className="w-full rounded-md border border-input bg-secondary px-3 py-2 text-sm text-foreground ring-offset-background focus:outline-none focus:ring-2 focus:ring-[var(--vscode-focusBorder,var(--editor-foreground, #007fd4))] focus:ring-offset-2"
               >
                 <option value="zh">中文</option>
                 <option value="en">English</option>
@@ -433,7 +434,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
                   })
                 }
               />
-              <p className="text-xs text-[var(--vscode-descriptionForeground,#858585)]">
+              <p className="text-xs text-muted-foreground">
                 {t('initialDelayDescription')}
               </p>
             </div>
@@ -442,7 +443,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
             <div className="space-y-4">
               <div>
                 <Label>{t('clickToConfigure')}</Label>
-                <p className="text-sm text-[var(--vscode-descriptionForeground,#858585)] mt-1">{t('clickToConfigureDescription')}</p>
+                <p className="text-sm text-muted-foreground mt-1">{t('clickToConfigureDescription')}</p>
               </div>
 
               <div
@@ -467,9 +468,9 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
                     }
 
                     let cellClass = 'rounded-md border-2 flex flex-col items-center justify-center cursor-pointer transition-all relative overflow-hidden';
-                    if (mergeMode && selected) cellClass += ' bg-[var(--vscode-list-hoverBackground,#2a2d2e)] border-[#22c55e] shadow-md scale-[1.02]';
-                    else if (mergeMode) cellClass += ' bg-[var(--vscode-sideBar-background,#252526)] border-[var(--vscode-panel-border,#3c3c3c)] hover:bg-[var(--vscode-list-hoverBackground,#2a2d2e)] hover:border-[var(--vscode-focusBorder,#007fd4)]';
-                    else cellClass += ' bg-[var(--vscode-sideBar-background,#252526)] border-[var(--vscode-panel-border,#3c3c3c)] hover:bg-[var(--vscode-list-hoverBackground,#2a2d2e)] hover:border-[var(--vscode-focusBorder,#007fd4)]';
+                    if (mergeMode && selected) cellClass += ' bg-[var(--vscode-list-hoverBackground,var(--editor-background, #2a2d2e))] border-[#22c55e] shadow-md scale-[1.02]';
+                    else if (mergeMode) cellClass += ' bg-card border-border hover:bg-[var(--vscode-list-hoverBackground,var(--editor-background, #2a2d2e))] hover:border-ring';
+                    else cellClass += ' bg-card border-border hover:bg-[var(--vscode-list-hoverBackground,var(--editor-background, #2a2d2e))] hover:border-ring';
 
                     // Calculate grid span for merged cells
                     const gridStyle: React.CSSProperties = {
@@ -504,23 +505,23 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
                         {/* Cell content */}
                         <div className="flex flex-col items-center gap-1 w-full px-2">
                           {mergeMode ? (
-                            <span className="text-sm text-[var(--vscode-descriptionForeground,#858585)]">
+                            <span className="text-sm text-muted-foreground">
                               {cellIndex}
                             </span>
                           ) : (
                             <>
                               <span 
-                                className="text-xs font-medium text-[var(--vscode-editor-foreground,#cccccc)] truncate w-full text-center px-1"
+                                className="text-xs font-medium text-foreground truncate w-full text-center px-1"
                                 title={cellData?.title || `Terminal ${cellIndex}`}
                               >
                                 {cellData?.title || `Terminal ${cellIndex}`}
                               </span>
-                              <span className="text-[10px] text-[var(--vscode-descriptionForeground,#858585)]">
+                              <span className="text-[10px] text-muted-foreground">
                                 {cellIndex}
                               </span>
                               {/* Edit icon on hover */}
                               <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-[var(--vscode-descriptionForeground,#858585)]">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground">
                                   <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
                                 </svg>
                               </div>
@@ -531,7 +532,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
                         {/* Merge indicator */}
                         {mergedStart && !mergeMode && (
                           <div className="absolute bottom-1 left-1">
-                            <span className="text-[10px] text-[var(--vscode-descriptionForeground,#858585)]">
+                            <span className="text-[10px] text-muted-foreground">
                               {getMergedCellIndices(mergedStart)}
                             </span>
                           </div>
@@ -540,7 +541,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
                         {/* Config gear icon (visible on hover) */}
                         {!mergeMode && (
                           <div className="absolute top-1 right-1 opacity-0 hover:opacity-100 transition-opacity">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-[var(--vscode-focusBorder,#007fd4)]">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-ring">
                               <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.1a2 2 0 0 1-1-1.72v-.51a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
                               <circle cx="12" cy="12" r="3" />
                             </svg>
@@ -565,7 +566,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
                   {mergeMode ? t('exitMergeMode') : t('mergeCells')}
                 </Button>
                 {mergeMode && (
-                  <span className="text-sm text-[var(--vscode-descriptionForeground,#858585)]">
+                  <span className="text-sm text-muted-foreground">
                     {t('mergeCellsDescription')}
                   </span>
                 )}
@@ -574,7 +575,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
               {/* Merge action buttons */}
               {mergeMode && selectedCells.length > 0 && (
                 <div className="flex items-center gap-3">
-                  <span className="text-sm text-[var(--vscode-descriptionForeground,#858585)]">
+                  <span className="text-sm text-muted-foreground">
                     {isValidSelection(selectedCells)
                       ? `${t('mergeCells')} (${selectedCells.length} ${t('cell')})`
                       : selectedCells.length < 2
@@ -603,7 +604,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
 
               {/* Merged Cells List */}
               {localConfig.mergedCells && localConfig.mergedCells.length > 0 && (
-                <div className="border border-[var(--vscode-panel-border,#3c3c3c)] rounded-md p-3 bg-[var(--vscode-sideBar-background,#252526)]">
+                <div className="border border-border rounded-md p-3 bg-card">
                   <div className="flex items-center justify-between mb-2">
                     <span className="font-medium">{t('mergedCells')}</span>
                     <Button
@@ -621,12 +622,12 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
                       const rowCount = m.endRow - m.startRow + 1;
                       const colCount = m.endCol - m.startCol + 1;
                       return (
-                        <div key={m.id} className="flex items-center justify-between bg-[var(--vscode-editor-background,#1e1e1e)] p-2 rounded">
+                        <div key={m.id} className="flex items-center justify-between bg-background p-2 rounded">
                           <div className="flex flex-col gap-0.5">
-                            <span className="text-sm font-medium text-[var(--vscode-editor-foreground,#cccccc)]">
+                            <span className="text-sm font-medium text-foreground">
                               Terminal {startIndex}{startIndex !== endIndex ? ` ~ ${endIndex}` : ''}
                             </span>
-                            <span className="text-xs text-[var(--vscode-descriptionForeground,#858585)]">
+                            <span className="text-xs text-muted-foreground">
                               {language === 'zh'
                                 ? `第${m.startRow + 1}行 第${m.startCol + 1}列 → 第${m.endRow + 1}行 第${m.endCol + 1}列 (${rowCount}×${colCount})`
                                 : `Row ${m.startRow + 1} Col ${m.startCol + 1} → Row ${m.endRow + 1} Col ${m.endCol + 1} (${rowCount}×${colCount})`
@@ -636,7 +637,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="h-7 w-7 p-0 text-[var(--vscode-descriptionForeground,#858585)] hover:text-red-400"
+                            className="h-7 w-7 p-0 text-muted-foreground hover:text-red-400"
                             onClick={() => removeMergedCell(m.id)}
                           >
                             ×
@@ -651,7 +652,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({
           </div>
 
           {/* Fixed footer */}
-          <div className="p-6 pt-4 shrink-0 border-t border-[var(--vscode-panel-border,#3c3c3c)]">
+          <div className="p-6 pt-4 shrink-0 border-t border-border">
             <Button
               onClick={() => {
                 onSave(localConfig);

@@ -3,6 +3,7 @@ import { TermGridConfig, TerminalCell } from '../../shared/schema';
 import { Theme, TerminalStatus } from '../../shared/types';
 import { TranslationKey } from '../../shared/translations';
 import TerminalCellComponent from './TerminalCell';
+import { getHostBridge } from '../lib/bridge';
 
 interface TerminalGridProps {
   config: TermGridConfig;
@@ -271,18 +272,12 @@ const TerminalGrid: React.FC<TerminalGridProps> = ({
 
   // Handle cell stop
   const handleCellStop = useCallback((cellId: string) => {
-    const vscode = (window as unknown as { vscode?: { postMessage: (msg: unknown) => void } }).vscode;
-    if (vscode) {
-      vscode.postMessage({ type: 'terminal:stop', payload: { cellId } });
-    }
+    getHostBridge().postMessage({ type: 'terminal:stop', payload: { cellId } });
   }, []);
 
   // Handle cell restart
   const handleCellRestart = useCallback((cellId: string) => {
-    const vscode = (window as unknown as { vscode?: { postMessage: (msg: unknown) => void } }).vscode;
-    if (vscode) {
-      vscode.postMessage({ type: 'terminal:restart', payload: { cellId } });
-    }
+    getHostBridge().postMessage({ type: 'terminal:restart', payload: { cellId } });
   }, []);
 
   // Handle cell input

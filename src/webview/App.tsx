@@ -14,12 +14,10 @@ import './styles/index.css';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './components/ui/dialog';
 import { Button } from './components/ui/button';
 
-interface VSCodeApi {
-  postMessage(message: unknown): void;
-}
+import { HostBridge } from './lib/bridge';
 
 interface AppProps {
-  vscode: VSCodeApi;
+  bridge: HostBridge;
 }
 
 const MAX_TERMINAL_BUFFER_LENGTH = 200_000;
@@ -66,7 +64,7 @@ function getModifiedFields(
   return modified;
 }
 
-const App: React.FC<AppProps> = ({ vscode }) => {
+const App: React.FC<AppProps> = ({ bridge }) => {
   const [config, setConfig] = useState<TermGridConfig | null>(null);
   const [isDirty, setIsDirty] = useState(false);
   const [modifiedFields, setModifiedFields] = useState<ModifiedField[]>([]);
@@ -101,16 +99,14 @@ const App: React.FC<AppProps> = ({ vscode }) => {
 
   // Listen for messages from extension host
   useEffect(() => {
-    const handleMessage = (event: MessageEvent) => {
-      const message = event.data as ExtensionMessage;
-
+    const unsubscribe = bridge.onMessage((message) => {
+      // Direct extension message processing
       switch (message.type) {
         case 'config:loaded':
         case 'config:updated':
         case 'config:saved':
           setConfig(message.payload.config);
           setLanguage((message.payload.config.language as Language) || 'zh');
-          // When config is loaded/updated from file, reset dirty state
           setIsDirty(false);
           setModifiedFields([]);
           
@@ -124,7 +120,6 @@ const App: React.FC<AppProps> = ({ vscode }) => {
             ...terminalData.current,
             [message.payload.cellId]: nextData.slice(-MAX_TERMINAL_BUFFER_LENGTH),
           };
-          // Write data to all terminal refs if they exist
           const refs = terminalRefs.current[message.payload.cellId];
           if (refs) {
             refs.forEach(ref => ref.write(message.payload.data));
@@ -165,16 +160,15 @@ const App: React.FC<AppProps> = ({ vscode }) => {
           setTestExitCode(message.payload.code);
           break;
       }
-    };
+    });
 
-    window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
-  }, []);
+    return () => unsubscribe();
+  }, [bridge]);
 
   // Send message to extension host
   const sendMessage = useCallback((message: WebviewMessage) => {
-    vscode.postMessage(message);
-  }, [vscode]);
+    bridge.postMessage(message);
+  }, [bridge]);
 
   // Notify extension host that webview is ready
   useEffect(() => {

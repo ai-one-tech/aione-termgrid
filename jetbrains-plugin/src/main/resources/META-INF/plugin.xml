@@ -1,0 +1,23 @@
+<idea-plugin>
+  <id>org.aione.termgrid</id>
+  <name>TermGrid AiOne</name>
+  <vendor email="tech@ai-one.org" url="https://github.com/ai-one-tech/aione-termgrid" id="aione">
+    AiOne</vendor>
+
+  <description><![CDATA[
+      Batch manage multiple terminals in a grid layout with support for merging cells, theme customization, and multi-language interface.
+    ]]></description>
+
+  <depends>com.intellij.modules.platform</depends>
+
+  <extensions defaultExtensionNs="com.intellij">
+    <!-- File editor provider for .tg files -->
+    <fileEditorProvider implementation="org.aione.termgrid.TermGridFileEditorProvider" />
+
+    <!-- Tool window on the left sidebar -->
+    <toolWindow id="TermGrid"
+      anchor="left"
+      icon="icons/termgrid.svg"
+      factoryClass="org.aione.termgrid.toolwindow.TermGridToolWindowFactory" />
+  </extensions>
+</idea-plugin>

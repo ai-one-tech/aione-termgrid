@@ -98,7 +98,7 @@
       {
         "command": "termGrid.stopAll",
         "title": "Stop All",
-        "icon": "$(stop)"
+        "icon": "$(debug-stop)"
       },
       {
         "command": "termGrid.restartAll",
@@ -167,6 +167,8 @@
     "postinstall": "find node_modules/node-pty -name \"spawn-helper\" -exec chmod +x {} +",
     "vscode:prepublish": "npm run build",
     "vsix": "vsce package",
+    "build:jetbrains": "vfox use -s java@17.0.2+8 && npm run build:webview && cd jetbrains-plugin && ./gradlew buildPlugin",
+    "run:jetbrains": "vfox use -s java@17.0.2+8 && npm run build:webview && cd jetbrains-plugin && ./gradlew runIde",
     "publish:vscode": "vsce publish",
     "publish:ovsx": "ovsx publish",
     "publish": "npm run publish:vscode && npm run publish:ovsx",

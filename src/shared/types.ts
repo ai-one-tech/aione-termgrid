@@ -48,7 +48,7 @@ export interface TerminalInstance {
 // Host -> WebView
 export interface ConfigLoadedMessage {
   type: 'config:loaded';
-  payload: { config: TermGridConfig };
+  payload: { config: TermGridConfig; showCloseWarning?: boolean };
 }
 
 export interface ConfigUpdatedMessage {
@@ -218,24 +218,28 @@ export const DEFAULT_CONFIG: TermGridConfig = {
       id: 'cell-1',
       title: 'Terminal 1',
       cwd: '.',
+      order: 1,
       delay: 0,
     },
     {
       id: 'cell-2',
       title: 'Terminal 2',
       cwd: '.',
+      order: 2,
       delay: 0,
     },
     {
       id: 'cell-3',
       title: 'Terminal 3',
       cwd: '.',
+      order: 3,
       delay: 0,
     },
     {
       id: 'cell-4',
       title: 'Terminal 4',
       cwd: '.',
+      order: 4,
       delay: 0,
     },
   ],
