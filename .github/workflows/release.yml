@@ -103,6 +103,9 @@ jobs:
           if [ "${{ github.event_name }}" == "push" ] || [ "${{ inputs.publish_openvsx }}" == "true" ]; then
             FILES="$FILES termgrid-ovsx-*.vsix"
           fi
+          if [ "${{ github.event_name }}" == "push" ] || [ "${{ inputs.publish_jetbrains }}" == "true" ]; then
+            FILES="$FILES jetbrains-plugin/build/distributions/*.zip"
+          fi
           echo "files=$FILES" >> $GITHUB_OUTPUT
           echo "Release files: $FILES"
 
